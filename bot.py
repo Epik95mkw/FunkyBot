@@ -492,19 +492,19 @@ async def gcps(ctx, *args):
         gcplist = gcpfind(rawkmp, bounds=(-500000, 500000))
         html = gcpgraph(rawkmp, gcplist, option, bounds=(-500000, 500000))
 
-        txt = f'{html}\n<!--{", ".join([str(g) for g in gcplist])}-->'
-        if len(gcplist) > 0:
-            gcpfound = 'Ghost checkpoints found at: ' + ', '.join([str(g) for g in gcplist])
-        else:
-            gcpfound = 'No ghost checkpoints found.'
-
+        append = f'{html}\n<!--{", ".join([str(g) for g in gcplist])}-->'
         if option:
             track.path = paths.TEMP
         with open(f'{track.path}{track.name}.desmos.html', 'w') as out:
-            out.write(txt)
+            out.write(append)
     else:
         with open(f'{track.path}{track.name}.desmos.html', 'r') as f:
-            gcpfound = 'Ghost checkpoints found at: ' + f.read().split('\n')[-1][4:-3]
+            gcplist = [s for s in f.read().split('\n')[-1][4:-3].split(', ') if s.isnumeric()]
+
+    if len(gcplist) > 0:
+        gcpfound = 'Ghost checkpoints found at: ' + ', '.join([str(g) for g in gcplist])
+    else:
+        gcpfound = 'No ghost checkpoints found.'
 
     msg = f'**{track.name}**\n{gcpfound}\nDownload file and open in browser:'
     await ctx.send(content=msg, file=discord.File(f'{track.path}{track.name}.desmos.html'))
