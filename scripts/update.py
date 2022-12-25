@@ -85,7 +85,6 @@ def ctgp_update(sheet: Spreadsheet, archive_info=True):
 
     # Move old track rows to Removed
     paste_dest = len(sheet[2].row_names) + 3
-    print(f'{paste_dest=}')
     rm_rows = []
 
     sheet[0].format(f'A2:B{CT_COUNT + 1}', {
@@ -127,7 +126,7 @@ def ctgp_update(sheet: Spreadsheet, archive_info=True):
         if archive_info:
             fullname, wid = get_archive_info(t['trackId'])
 
-        with open(PATH + alias(t['name']).replace(':', '') + '/course.kmp', 'rb') as f:
+        with open(PATH + '_UPDATE/' + alias(t['name']).replace(':', '') + '/course.kmp', 'rb') as f:
             kmpobj = kmp.parse(f)
         values = wiimms.calculate_cpinfo(kmpobj, t['name'])
 
