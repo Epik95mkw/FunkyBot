@@ -118,7 +118,7 @@ class SpreadsheetPage(gspread.Worksheet):
     def get_row_name(self, col: str|int, value: str):
         return self.row_names[self.get_row(col, value) - 1]
 
-    def create_cell(self, r: int, c: int, value='', link=None):
+    def dummy_cell(self, r=0, c=0, value='', link=None):
         return Cell(self, r, c, value, link)
 
 

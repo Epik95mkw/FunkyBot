@@ -130,8 +130,9 @@ async def vid(ctx, *args):
 
     await track.s.edit(content=f'**{track.name}**')
 
-    rta = sheet[0][track.name][3]
-    tas = sheet[0][track.name][4]
+    row = sheet[0][track.name]
+    rta = row[3] if len(row) > 3 else sheet[0].dummy_cell()
+    tas = row[4] if len(row) > 4 else sheet[0].dummy_cell()
 
     if rta.link is not None:
         status = d.gcat[rta] if rta in d.gcat else rta

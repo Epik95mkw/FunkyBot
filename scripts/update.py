@@ -102,7 +102,7 @@ def ctgp_update(sheet: Spreadsheet, archive_info=True):
         rm_rows += [(
             sheet[0][name][0],
             (1, 7),
-            sheet[2].create_cell(paste_dest, 0)
+            sheet[2].dummy_cell(paste_dest, 0)
         )]
         paste_dest += 1
 
