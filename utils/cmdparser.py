@@ -28,7 +28,7 @@ class TrackList:
         return [t.split()[0].upper() if len(t.split()) > 0 else '' for t in self.ftl]
 
 
-class CmdInstance:
+class TrackData:
     name = 'Attached Track'
     file = 'course.xxx'
     path: str

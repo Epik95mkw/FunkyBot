@@ -81,7 +81,7 @@ async def tlist(ctx, arg=''):
 async def info(ctx, *args):
     settings = {'ctgp': True, 'new': False, 'regs': False, 'atts': [],
                 'help': '\\info <track name> - Get track version, glitch status, and wiki page link' + LIST_MSG}
-    track = CmdInstance()
+    track = TrackData()
     await track.initialize(ctx, tl, args, settings)
     if not track.success:
         return
@@ -123,7 +123,7 @@ async def info(ctx, *args):
 async def vid(ctx, *args):
     settings = {'ctgp': True, 'new': False, 'regs': False, 'atts': [],
                 'help': '\\vid <track name> - Get video of track\'s ultra shortcut' + LIST_MSG}
-    track = CmdInstance()
+    track = TrackData()
     await track.initialize(ctx, tl, args, settings)
     if not track.success:
         return
@@ -175,7 +175,7 @@ async def get_bkt(ctx, *args):
                 params = False
 
     settings = {'ctgp': True, 'new': False, 'regs': True, 'atts': [], 'help': 'Track name not recognized.' + LIST_MSG}
-    track = CmdInstance()
+    track = TrackData()
     await track.initialize(ctx, tl, args, settings)
     if not track.success:
         return
@@ -209,7 +209,7 @@ async def get_bkt(ctx, *args):
 async def szs(ctx, *args):
     settings = {'ctgp': True, 'new': True, 'regs': True, 'atts': [],
                 'help': '\\szs <track name> - Download track\'s szs file' + LIST_MSG}
-    track = CmdInstance()
+    track = TrackData()
     await track.initialize(ctx, tl, args, settings)
     if not track.success:
         return
@@ -230,7 +230,7 @@ async def szs(ctx, *args):
 async def get_kmp(ctx, *args):
     settings = {'ctgp': True, 'new': True, 'regs': True, 'atts': ['.szs'],
                 'help': '\\kmp <track name> - Download track\'s kmp and kcl files' + LIST_MSG}
-    track = CmdInstance()
+    track = TrackData()
     await track.initialize(ctx, tl, args, settings)
     if not track.success:
         return
@@ -257,7 +257,7 @@ async def get_kmp(ctx, *args):
 async def kmptext(ctx, *args):
     settings = {'ctgp': True, 'new': True, 'regs': True, 'atts': ['.szs', '.kmp'],
                 'help': '\\kmptext <track name> - Get track kmp in both raw and text form' + LIST_MSG}
-    track = CmdInstance()
+    track = TrackData()
     await track.initialize(ctx, tl, args, settings)
     if not track.success:
         return
@@ -281,7 +281,7 @@ async def kmptext(ctx, *args):
 async def kcltext(ctx, *args):
     settings = {'ctgp': True, 'new': True, 'regs': True, 'atts': ['.szs', '.kcl'],
                 'help': '\\kcltext <track name> - Get track kcl in both raw and text form' + LIST_MSG}
-    track = CmdInstance()
+    track = TrackData()
     await track.initialize(ctx, tl, args, settings)
     if not track.success:
         return
@@ -309,18 +309,16 @@ async def kcltext(ctx, *args):
 async def cpmap1(ctx, *args):
     settings = {'ctgp': True, 'new': True, 'regs': True, 'atts': ['.szs', '.kmp'],
                 'help': '\\img <track name> - Get image of track\'s checkpoint map' + LIST_MSG}
-    track = CmdInstance()
+    track = TrackData()
     await track.initialize(ctx, tl, args, settings)
     if not track.success:
         return
 
     files = fnmatch.filter(os.listdir(track.path), '*.png')
     if len(files) != 1:
-        await track.s.edit(content='Generating image...')
-        if not await w.kmp_draw(track.path, track.file):
-            await track.s.edit('File not found.')
-            return
-        files = fnmatch.filter(os.listdir(track.path), '*.png')
+        await track.s.edit('File not found.')
+        return
+
     await ctx.send(f'**{track}**', file=discord.File(track.path + files[0]))
     await track.s.delete()
 
@@ -328,7 +326,7 @@ async def cpmap1(ctx, *args):
 @bot.command(name='id')
 async def cpmap2(ctx, *args):
     settings = {'ctgp': True, 'new': False, 'regs': True, 'atts': [], 'help': '\\id <track name>'}
-    track = CmdInstance()
+    track = TrackData()
     await track.initialize(ctx, tl, args, settings)
     if not track.success:
         return
@@ -346,7 +344,7 @@ async def cpmap2(ctx, *args):
 async def cpinfo(ctx, *args):
     settings = {'ctgp': True, 'new': True, 'regs': True, 'atts': ['.szs', '.kmp'],
                 'help': '\\cpinfo <track name> - Get stats for track\'s checkpoint map'}
-    track = CmdInstance()
+    track = TrackData()
     await track.initialize(ctx, tl, args, settings)
     if not track.success:
         return
@@ -419,7 +417,7 @@ async def pop(ctx, *args):
     else:
         settings = {'ctgp': True, 'new': False, 'regs': False, 'atts': [],
                     'help': 'Track name not recognized.' + LIST_MSG}
-        track = CmdInstance()
+        track = TrackData()
         await track.initialize(ctx, tl, args, settings)
         if not track.success:
             return
@@ -477,7 +475,7 @@ async def gcps(ctx, *args):
     if args and args[0] in ['sp']:
         option = args.pop(0)
 
-    track = CmdInstance()
+    track = TrackData()
     await track.initialize(ctx, tl, args, settings)
     if not track.success:
         return
