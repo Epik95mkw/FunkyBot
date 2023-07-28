@@ -6,9 +6,9 @@ import shutil
 import requests
 from dotenv import load_dotenv
 
+from api.spreadsheet import Spreadsheet
 from hashcheck import hash_check
-
-from utils import Spreadsheet, paths, wiimms as w
+from utils import paths, wiimms as w
 
 PATH = paths.CTGP
 

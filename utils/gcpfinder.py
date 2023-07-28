@@ -24,7 +24,7 @@ TEMPLATE = \
     '''
 
 
-def gcpgraph(kmp, gcplist: list, arg='', bounds=(None, None)):
+def graph(kmp, gcplist: list, arg='', bounds=(None, None)):
     if gcplist is None:
         gcplist = ['']
     ckpt = kmp['CKPT']['entries']
@@ -151,7 +151,7 @@ def gcpgraph(kmp, gcplist: list, arg='', bounds=(None, None)):
 
 
 # noinspection PyDeprecation
-def gcpfind(kmp, bounds=(None, None), verbose=False):
+def find(kmp, bounds=(None, None), verbose=False):
     ckpt = kmp['CKPT']['entries']
     ckph = kmp['CKPH']['entries']
     numcps = len(ckpt)

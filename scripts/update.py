@@ -3,7 +3,9 @@ import shutil
 import requests
 from dotenv import load_dotenv
 
-from utils import *
+from api import data
+from api.spreadsheet import Spreadsheet
+from utils import paths, kmp, wiimms
 
 CT_COUNT = 218
 SHEET_RANGE = ('A2:G219', 'A2:P219', None)
@@ -121,7 +123,7 @@ def ctgp_update(sheet: Spreadsheet, archive_info=True):
         fullname = ''
         wid = ''
         slotid = str(t['_links']['item']['href'])[13:15]
-        slot = f'{slotid} ({dicts.regs.get(slotid)["alias"]})'
+        slot = f'{slotid} ({data.regs.get(slotid)["alias"]})'
 
         if archive_info:
             fullname, wid = get_archive_info(t['trackId'])

@@ -81,7 +81,7 @@ gcat = {
 
 prefixes = ['SNES', 'GBA', 'N64', 'GCN', 'DS', 'CTR', 'DKR', 'GP', 'SADX']
 
-lbcat = [
+category_id = [
     '150cc',
     '150cc Glitch',
     '150cc No SC',

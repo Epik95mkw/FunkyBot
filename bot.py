@@ -10,13 +10,15 @@ from bs4 import BeautifulSoup
 from discord.ext.commands import Bot
 from dotenv import load_dotenv
 
-from utils import *
-from utils import dicts as d, wiimms as w
+from api import data as d
+from utils import wiimms as w, kmp, paths, gcpfinder
+from api.spreadsheet import Spreadsheet
+from components.trackdata import TrackList, TrackData
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
 sheet = Spreadsheet(os.getenv('SHEETS_KEY'), 'token.json')
-tl = TrackList(sheet[0].row_names, [], d.regs.list('name'))
+tl = TrackList(sheet[0].row_names, d.regs.list('name'))
 LIST_MSG = '\nUse \\list to view valid track names.'
 
 
@@ -33,8 +35,8 @@ async def on_ready():
 @bot.event
 async def on_command_error(ctx, error):
     if not isinstance(error, discord.ext.commands.errors.CommandNotFound):
-        await ctx.send(f'Something went wrong :(')
-        raise error
+        await ctx.send(error)
+        raise error.original
 
 
 # COMMANDS #############################################################################################################
@@ -119,7 +121,7 @@ async def info(ctx, *args):
     await track.s.delete()
 
 
-@bot.command(name='vid')
+@bot.command(name='video')
 async def vid(ctx, *args):
     settings = {'ctgp': True, 'new': False, 'regs': False, 'atts': [],
                 'help': '\\vid <track name> - Get video of track\'s ultra shortcut' + LIST_MSG}
@@ -207,7 +209,7 @@ async def get_bkt(ctx, *args):
 
 @bot.command(name='szs')
 async def szs(ctx, *args):
-    settings = {'ctgp': True, 'new': True, 'regs': True, 'atts': [],
+    settings = {'ctgp': True, 'new': True, 'regs': False, 'atts': [],
                 'help': '\\szs <track name> - Download track\'s szs file' + LIST_MSG}
     track = TrackData()
     await track.initialize(ctx, tl, args, settings)
@@ -307,7 +309,7 @@ async def kcltext(ctx, *args):
 
 @bot.command(name='img')
 async def cpmap1(ctx, *args):
-    settings = {'ctgp': True, 'new': True, 'regs': True, 'atts': ['.szs', '.kmp'],
+    settings = {'ctgp': True, 'new': True, 'regs': True, 'atts': [],
                 'help': '\\img <track name> - Get image of track\'s checkpoint map' + LIST_MSG}
     track = TrackData()
     await track.initialize(ctx, tl, args, settings)
@@ -488,8 +490,8 @@ async def gcps(ctx, *args):
         with open(track.kmp(), 'rb') as f:
             rawkmp = kmp.parse(f)
 
-        gcplist = gcpfind(rawkmp, bounds=(-500000, 500000))
-        html = gcpgraph(rawkmp, gcplist, option, bounds=(-500000, 500000))
+        gcplist = gcpfinder.find(rawkmp, bounds=(-500000, 500000))
+        html = gcpfinder.graph(rawkmp, gcplist, option, bounds=(-500000, 500000))
 
         append = f'{html}\n<!--{", ".join([str(g) for g in gcplist])}-->'
         if option:
