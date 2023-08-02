@@ -24,7 +24,7 @@ TEMPLATE = \
     '''
 
 
-def graph(kmp, gcplist: list, arg='', bounds=(None, None)):
+def graph(kmp, gcplist: list, splitpaths=False, bounds=(None, None)):
     if gcplist is None:
         gcplist = ['']
     ckpt = kmp['CKPT']['entries']
@@ -32,11 +32,6 @@ def graph(kmp, gcplist: list, arg='', bounds=(None, None)):
     numcps = len(ckpt)
     group = 0
     script = []
-
-    if arg == 'sp':
-        splitpath = True
-    else:
-        splitpath = False
 
     a_ = []
     b_ = []
@@ -120,7 +115,7 @@ def graph(kmp, gcplist: list, arg='', bounds=(None, None)):
                       f'\\\\right\\\\}} \\\\left\\\\{{F_{{{i}t{nexti}}} > 0\\\\right\\\\}}', color)
 
             # Split path GCPs (end of split path)
-            if splitpath and len(nexts) > 1 and ckpt[i]['type'] == 255:
+            if splitpaths and len(nexts) > 1 and ckpt[i]['type'] == 255:
                 to_script(f'B_{{{i}t{nexti}}} > 0 \\\\left\\\\{{B_{{{nexti}t{nexti + 1}}} > 0\\\\right\\\\}} '
                           f'\\\\left\\\\{{{vneg[i]} > 0\\\\right\\\\}}', ORANGE)
 
@@ -129,7 +124,7 @@ def graph(kmp, gcplist: list, arg='', bounds=(None, None)):
                       f'({s0[previ]}(x-{a_[previ]})+{s1[previ]}(y-{b_[previ]}))}}')
 
             # Split path GCPs (beginning of split path)
-            if splitpath and len(prevs) > 1 and ckpt[i]['type'] == 255:
+            if splitpaths and len(prevs) > 1 and ckpt[i]['type'] == 255:
                 to_script(f'B_{{{previ}t{i}}} > 0 \\\\left\\\\{{B_{{{i}t{i + 1}}} > 0\\\\right\\\\}} '
                           f'\\\\left\\\\{{{vneg[i]} < 0\\\\right\\\\}}', ORANGE)
 

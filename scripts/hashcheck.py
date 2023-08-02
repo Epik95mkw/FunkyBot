@@ -3,7 +3,7 @@ import os
 
 from dotenv import load_dotenv
 
-from api.spreadsheet import Spreadsheet
+from api.spreadsheet_old import Spreadsheet
 from utils import paths, wiimms
 
 PATH = paths.CTGP

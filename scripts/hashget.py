@@ -6,7 +6,7 @@ import shutil
 import requests
 from dotenv import load_dotenv
 
-from api.spreadsheet import Spreadsheet
+from api.spreadsheet_old import Spreadsheet
 from hashcheck import hash_check
 from utils import paths, wiimms as w
 
@@ -56,8 +56,8 @@ async def main(i=15):
             print('SZS files are identical.')
             shutil.rmtree(f'{path}{track}')
             continue
-        await w.kmp_encode(f'{path}{track}/', new_szs, 'course.kmp')
-        await w.kcl_encode(f'{path}{track}/', new_szs, 'course.kcl')
+        await w.wkmpt_encode(f'{path}{track}/', new_szs, 'course.kmp')
+        await w.wkclt_encode(f'{path}{track}/', new_szs, 'course.kcl')
     print('Done.')
 
 

@@ -6,20 +6,23 @@ from datetime import datetime
 
 import discord
 import requests
-from bs4 import BeautifulSoup
 from discord.ext.commands import Bot
 from dotenv import load_dotenv
 
-from api import data as d
+import utils.kmp
+from api import spreadsheet, gamedata, data as d
 from utils import wiimms as w, kmp, paths, gcpfinder
-from api.spreadsheet import Spreadsheet
-from components.trackdata import TrackList, TrackData
+from components.tracklist import TrackList, TrackData, Category
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
-sheet = Spreadsheet(os.getenv('SHEETS_KEY'), 'token.json')
-tl = TrackList(sheet[0].row_names, d.regs.list('name'))
-LIST_MSG = '\nUse \\list to view valid track names.'
+SHEET_ID = os.getenv('SHEETS_KEY')
+
+client = spreadsheet.authorize('./token.json')
+tracklist = TrackList(
+    sheet=spreadsheet.get_formatted(client, SHEET_ID),
+    regs=gamedata.regs.list('name')
+)
 
 
 bot = Bot(command_prefix='\\', help_command=None)
@@ -40,355 +43,233 @@ async def on_command_error(ctx, error):
 
 
 # COMMANDS #############################################################################################################
-
+# TODO: Move all API stuff to their own modules
 
 @bot.command(name='help')
 async def cmd_help(ctx):
-    embed = discord.Embed(title="Commands:", description=d.cmdlist + LIST_MSG, color=0xCA00FF)
+    embed = discord.Embed(title="Commands:", description=d.cmdlist, color=0xCA00FF)
     await ctx.send(embed=embed)
 
 
 @bot.command(name='links')
 async def links(ctx):
-    desc = f'CTGP Ultras Spreadsheet:\n{sheet.url}\n\n{d.links}'
+    desc = f'CTGP Ultras Spreadsheet:\n{spreadsheet.public_url(SHEET_ID)}\n\n{d.links}'
     embed = discord.Embed(title='**Resources:**', description=desc, color=0xCA00FF)
     await ctx.send(embed=embed)
 
 
 @bot.command(name='spreadsheet')
 async def get_sheetlink(ctx):
-    await ctx.send(sheet.url)
-
-
-@bot.command(name='list')
-async def tlist(ctx, arg=''):
-    if not arg:
-        ls = tl.ctgp
-        if tl.new:
-            ls += ['', 'Upcoming:'] + tl.new
-    elif arg.lower() == 'ctgp':
-        ls = tl.ctgp
-    elif tl.new and arg.lower() == 'new':
-        ls = tl.new
-    else:
-        await ctx.send('Unknown Argument.')
-        return
-
-    with open('tracklist.txt', 'w') as out:
-        out.write('\n'.join(ls))
-    await ctx.send(file=discord.File('tracklist.txt'))
+    await ctx.send(spreadsheet.public_url(SHEET_ID))
 
 
 @bot.command(name='info')
-async def info(ctx, *args):
-    settings = {'ctgp': True, 'new': False, 'regs': False, 'atts': [],
-                'help': '\\info <track name> - Get track version, glitch status, and wiki page link' + LIST_MSG}
-    track = TrackData()
-    await track.initialize(ctx, tl, args, settings)
-    if not track.success:
-        return
+@tracklist.handle_input(regs=False, filetypes=())
+async def info(ctx, track: TrackData):
+    """ \\info <track name> - Get general track information """
+    sdata = track.sheetdata
 
-    row1 = sheet[0][track.name]
-    wiki = row1[0].link
-    if wiki is None:
-        wiki = '[link not found]'
-
-    status = ''
-    if row1[2][0:3] == 'Yes':
-        status += d.gcat[row1[2]]
+    if 'Unbreakable' in sdata.breakability:
+        status = sdata.breakability
+    elif sdata.tas_status is None:
+        status = sdata.rta_status
+    elif sdata.rta_status == 'Not Glitched':
+        status = sdata.tas_status
     else:
-        status += d.gcat[row1[3]]
-        if len(row1) > 4 and row1[4] in d.gcat:
-            if status == 'Not Glitched':
-                status = d.gcat[row1[4]]
-            else:
-                status += ', ' + d.gcat[row1[4]]
+        status = sdata.rta_status + ', ' + sdata.tas_status
 
-    row2 = sheet[1][track.name]
-    archive = f'<https://ct.wiimm.de/i/{row2[4]}>' if row2[4] != '--' else 'N/A'
-
-    desc = f'Creator(s): {row2[2]}\n' \
-           f'CTGP Version: {row1[1]}\n' \
-           f'Track Slot: {row2[3]}\n' \
-           f'CT Archive ID: {row2[4]}\n' \
+    desc = f'Creator(s): {sdata.creators}\n' \
+           f'CTGP Version: {sdata.version}\n' \
+           f'Track Slot: {sdata.slot}\n' \
+           f'CT Archive ID: {sdata.wiimm_id}\n' \
            f'\n' \
            f'Glitch Status: {status}\n' \
            f'\n' \
-           f'Wiki Page: <{wiki}>\n' \
-           f'CT Archive Page: {archive}'
-
+           f'Wiki Page: <{sdata.wiki_url or "[link not found]"}>\n' \
+           f'CT Archive Page: {sdata.archive_url or "N/A"}'
     await ctx.send(embed=discord.Embed(title=track.name, description=desc, color=0xCA00FF))
-    await track.s.delete()
 
 
 @bot.command(name='video')
-async def vid(ctx, *args):
-    settings = {'ctgp': True, 'new': False, 'regs': False, 'atts': [],
-                'help': '\\vid <track name> - Get video of track\'s ultra shortcut' + LIST_MSG}
-    track = TrackData()
-    await track.initialize(ctx, tl, args, settings)
-    if not track.success:
-        return
-
-    await track.s.edit(content=f'**{track.name}**')
-
-    row = sheet[0][track.name]
-    rta = row[3] if len(row) > 3 else sheet[0].dummy_cell()
-    tas = row[4] if len(row) > 4 else sheet[0].dummy_cell()
-
-    if rta.link is not None:
-        status = d.gcat[rta] if rta in d.gcat else rta
-        await ctx.send(f'{status}: \n{rta.link}')
-
-    if tas.link is not None:
-        status = d.gcat[tas] if tas in d.gcat else tas
-        await ctx.send(f'{status}: \n{tas.link}')
-
-    if rta.link is None and tas.link is None:
+@tracklist.handle_input(regs=False, filetypes=())
+async def vid(ctx, track: TrackData):
+    """ \\video <track name> - Get video of track\'s ultra shortcut """
+    sdata = track.sheetdata
+    await ctx.send(content=f'**{track.name}**')
+    if sdata.rta_link is not None:
+        await ctx.send(f'{sdata.rta_status}: \n{sdata.rta_link}')
+    if sdata.tas_link is not None:
+        await ctx.send(f'{sdata.tas_status}: \n{sdata.tas_link}')
+    if sdata.rta_link is None and sdata.tas_link is None:
         await ctx.send('There is no video available for this track.')
 
 
 @bot.command(name='bkt')
-async def get_bkt(ctx, *args):
-    if not args:
-        await ctx.send('\\bkt <track name> [glitch/no-sc] [flap] [200cc]')
-        return
-
+@tracklist.handle_input(regs=True, filetypes=(), extra_args=('glitch', 'no-sc', 'flap', '200cc', '200'))
+async def get_bkt(ctx, track: TrackData, *args):
+    """ \\bkt <track name> [glitch/no-sc] [flap] [200cc] """
     args = [a.lower() for a in args]
-    params = True
     category = 0
     is_flap = ''
     is_200 = False
 
     # Parse command
-    while params:
-        if len(args) > 0:
-            a = args.pop()
-            if a == 'glitch':
-                category = 1
-            elif a == 'no-sc':
-                category = 2
-            elif a == 'flap':
-                is_flap = '-fast-lap'
-            elif a == '200cc' or a == '200':
-                is_200 = True
-            else:
-                args += [a]
-                params = False
-
-    settings = {'ctgp': True, 'new': False, 'regs': True, 'atts': [], 'help': 'Track name not recognized.' + LIST_MSG}
-    track = TrackData()
-    await track.initialize(ctx, tl, args, settings)
-    if not track.success:
-        return
+    for a in args:
+        if a == 'glitch':
+            category = 1
+        elif a == 'no-sc':
+            category = 2
+        elif a == 'flap':
+            is_flap = '-fast-lap'
+        elif a == '200cc' or a == '200':
+            is_200 = True
 
     # Build URL & get JSON
     if is_200:
         category += 4
     suffix = f'0{category}{is_flap}'
 
-    if track.name in tl.regs:
-        d_ = d.regs.get(track.name)
-        lb_url = f'https://tt.chadsoft.co.uk/leaderboard/{d_["slot"]}/{d_["sha1"]}/{suffix}'
+    if track.category == Category.REG:
+        reg = gamedata.regs.get(track.name)
+        slot = reg['slot']
+        sha1 = reg['sha1']
     else:
-        row = sheet[1][track.name]
-        lb_url = f'https://tt.chadsoft.co.uk/leaderboard/{row[3][0:2]}/{row[5]}/{suffix}'
+        slot = track.sheetdata.slot
+        sha1 = track.sheetdata.sha1
 
+    lb_url = f'https://tt.chadsoft.co.uk/leaderboard/{slot}/{sha1}/{suffix}'
     lb_req = requests.get(lb_url + '.json')
     lb_req.encoding = 'utf-8-sig'
     try:
         lb = lb_req.json()
     except json.decoder.JSONDecodeError:
-        await track.s.edit(content='Category does not exist.')
+        await ctx.send('Category does not exist.')
         return
 
     bkt_url = 'https://chadsoft.co.uk/time-trials' + lb['ghosts'][0]['_links']['item']['href'][0:-4] + 'html'
     await ctx.send(bkt_url)
-    await track.s.delete()
 
 
 @bot.command(name='szs')
-async def szs(ctx, *args):
-    settings = {'ctgp': True, 'new': True, 'regs': False, 'atts': [],
-                'help': '\\szs <track name> - Download track\'s szs file' + LIST_MSG}
-    track = TrackData()
-    await track.initialize(ctx, tl, args, settings)
-    if not track.success:
-        return
-
+@tracklist.handle_input(regs=False, filetypes=())
+async def szs(ctx, track: TrackData):
+    """ \\szs <track name> - Download track\'s szs file """
     title = f'**{track}**'
-    if track.name in d.cleaned:
+    if track.is_cleaned():
         title += '\n(Note: Use \kmp to get clean KCL file)'
 
-    files = fnmatch.filter(os.listdir(track.path), '*.szs')
-    if len(files) != 1:
-        await ctx.send(f'File could not be found. <@218679637742583808>')
+    file = track.szs_path()
+    if file is None:
+        raise FileNotFoundError('SZS file not found')
     else:
-        await ctx.send(title, file=discord.File(track.path + files[0]))
-    await track.s.delete()
+        await ctx.send(title, file=discord.File(file))
 
 
 @bot.command(name='kmp')
-async def get_kmp(ctx, *args):
-    settings = {'ctgp': True, 'new': True, 'regs': True, 'atts': ['.szs'],
-                'help': '\\kmp <track name> - Download track\'s kmp and kcl files' + LIST_MSG}
-    track = TrackData()
-    await track.initialize(ctx, tl, args, settings)
-    if not track.success:
-        return
-
-    if track.category == 'att':
-        if not await w.kmp_encode(track.path, track.file):
-            await track.s.edit(content='KMP decode failed: File not found.')
-            return
-        if not await w.kcl_encode(track.path, track.file):
-            await track.s.edit(content='KCL decode failed: File not found.')
-            return
+@tracklist.handle_input(regs=True, filetypes=('szs',))
+async def get_kmp(ctx, track: TrackData):
+    """ \\kmp <track name> - Download track\'s kmp and kcl files """
+    if track.kmp_path() is None:
+        await w.wkmpt_encode(track.szs_path(), track.path + 'course.kmp')
+    if track.kcl_path() is None:
+        await w.wkclt_encode(track.szs_path(), track.path + 'course.kcl')
 
     title = f'**{track.name}**'
-    if track.name in d.cleaned:
+    if track.is_cleaned():
         title += '\n(Note: KCL modified to remove invalid triangles)'
 
-    files = [discord.File(track.kmp(), filename='course.kmp'),
-             discord.File(track.kcl(), filename='course.kcl')]
+    files = [discord.File(track.kmp_path(), filename='course.kmp'),
+             discord.File(track.kcl_path(), filename='course.kcl')]
     await ctx.send(f'**{track}**', files=files)
-    await track.s.delete()
 
 
 @bot.command(name='kmptext')
-async def kmptext(ctx, *args):
-    settings = {'ctgp': True, 'new': True, 'regs': True, 'atts': ['.szs', '.kmp'],
-                'help': '\\kmptext <track name> - Get track kmp in both raw and text form' + LIST_MSG}
-    track = TrackData()
-    await track.initialize(ctx, tl, args, settings)
-    if not track.success:
-        return
-
+@tracklist.handle_input(regs=True, filetypes=('szs', 'kmp'))
+async def kmptext(ctx, track: TrackData):
+    """ \\kmptext <track name> - Get track kmp in both raw and text form """
     files = []
+    if track.kmp_path() is None and track.szs_path() is not None:
+        await w.wkmpt_encode(track.szs_path(), track.path + 'course.kmp')
+        files += [discord.File(track.kmp_path(), filename='course.kmp')]
 
-    if track.att_type == '.szs':
-        if not await w.kmp_encode(track.path, track.file):
-            await track.s.edit(content='KMP encode failed: File not found.')
-            return
-        files += [discord.File(track.kmp(), filename='course.kmp')]
-
-    await w.kmp_decode(track.path, track.file)
-    files += [discord.File(track.txt())]
+    if not track.has_file('kmp.txt') or not track.has_file('kmp_errors.txt'):
+        await w.wkmpt_decode(track.kmp_path(), track.path + 'kmp.txt', track.path + 'kmp_errors.txt')
+    files += [discord.File(track.path + 'kmp.txt'), discord.File(track.path + 'kmp_errors.txt')]
 
     await ctx.send(f'**{track.name}**', files=files)
-    await track.s.delete()
 
 
 @bot.command(name='kcltext')
-async def kcltext(ctx, *args):
-    settings = {'ctgp': True, 'new': True, 'regs': True, 'atts': ['.szs', '.kcl'],
-                'help': '\\kcltext <track name> - Get track kcl in both raw and text form' + LIST_MSG}
-    track = TrackData()
-    await track.initialize(ctx, tl, args, settings)
-    if not track.success:
-        return
-
+@tracklist.handle_input(regs=True, filetypes=('szs', 'kcl'))
+async def kcltext(ctx, track: TrackData):
+    """ \\kcltext <track name> - Get track kcl in both raw and text form """
     files = []
+    if track.kmp_path() is None and track.szs_path() is not None:
+        await w.wkclt_encode(track.szs_path(), track.path + 'course.kcl')
+        files += [discord.File(track.kcl_path(), filename='course.kcl')]
 
-    if track.att_type == '.szs':
-        if not await w.kcl_encode(track.path, track.file):
-            await track.s.edit(content='KCL encode failed: File not found.')
-            return
-        files += [discord.File(track.kcl(), filename='course.kcl')]
-
-    await w.kcl_flags(track.path)
-    files += [discord.File(track.path + 'kcl.txt')]
+    if not track.has_file('kcl_flags.txt'):
+        await w.wkclt_flags(track.kcl_path(), track.path + 'kcl_flags.txt')
+    files += [discord.File(track.path + 'kcl_flags.txt')]
 
     title = f'**{track.name}**'
-    if track.name in d.cleaned:
+    if track.is_cleaned():
         title += '\n(Note: KCL modified to remove invalid triangles)'
 
     await ctx.send(title, files=files)
-    await track.s.delete()
 
 
 @bot.command(name='img')
-async def cpmap1(ctx, *args):
-    settings = {'ctgp': True, 'new': True, 'regs': True, 'atts': [],
-                'help': '\\img <track name> - Get image of track\'s checkpoint map' + LIST_MSG}
-    track = TrackData()
-    await track.initialize(ctx, tl, args, settings)
-    if not track.success:
-        return
-
+@tracklist.handle_input(regs=True, filetypes=())
+async def cpmap1(ctx, track: TrackData):
+    """ \\img <track name> - Get image of track\'s checkpoint map """
     files = fnmatch.filter(os.listdir(track.path), '*.png')
     if len(files) != 1:
-        await track.s.edit('File not found.')
-        return
-
+        raise FileNotFoundError('Image not found')
     await ctx.send(f'**{track}**', file=discord.File(track.path + files[0]))
-    await track.s.delete()
-
-
-@bot.command(name='id')
-async def cpmap2(ctx, *args):
-    settings = {'ctgp': True, 'new': False, 'regs': True, 'atts': [], 'help': '\\id <track name>'}
-    track = TrackData()
-    await track.initialize(ctx, tl, args, settings)
-    if not track.success:
-        return
-
-    await track.s.edit(content=f'**{track.name}**')
-    if track.name in tl.regs:
-        abbrev = d.regs.get(track.name)['alias']
-        await ctx.send(f'!cp {abbrev}')
-    else:
-        wid = sheet[1][track.name][4]
-        await ctx.send(f'!id {wid}' if wid != '--' else 'Archive ID not found.')
 
 
 @bot.command(name='cpinfo')
-async def cpinfo(ctx, *args):
-    settings = {'ctgp': True, 'new': True, 'regs': True, 'atts': ['.szs', '.kmp'],
-                'help': '\\cpinfo <track name> - Get stats for track\'s checkpoint map'}
-    track = TrackData()
-    await track.initialize(ctx, tl, args, settings)
-    if not track.success:
-        return
-
-    if track.category != 'ctgp':    # not on spreadsheet
-        if not await w.kmp_encode(track.path, filename=track.file):
-            await track.s.edit(content='KMP extraction failed.')
-            return
-        with open(track.kmp(), 'rb') as f:
+@tracklist.handle_input(regs=True, filetypes=('szs', 'kmp'))
+async def cpinfo(ctx, track: TrackData):
+    """ \\cpinfo <track name> - Get stats for track\'s checkpoint map """
+    cpdata = track.cpdata
+    if cpdata is None:    # not on spreadsheet
+        if track.kmp_path() is None:
+            await w.wkmpt_encode(track.szs_path(), track.path + 'course.kmp')
+        with open(track.kmp_path(), 'rb') as f:
             rawkmp = kmp.parse(f)
-        values = w.calculate_cpinfo(rawkmp, track, silent=True)
-        values = [str(a) for a in values] + ['Unknown']
+        cpdata = utils.kmp.calculate_cpinfo(rawkmp, track.name, silent=True)
 
-    else:   # is on spreadsheet
-        row = sheet[1].read_row(track.name)
-        if not row[14]:
-            row[14] = 'None'
-        values = row[6:15]
-
-    if values[4] == '-1':
-        await track.s.edit(content='Checkpoint info unavailable for this track (multiple finish lines).')
+    if cpdata.from_cp0 == '-1':
+        await ctx.send('Checkpoint info unavailable for this track (multiple finish lines).')
         return
 
-    desc = f'Checkpoints: {values[1]}\n' \
-           f'Checkpoint Groups: {values[0]}\n' \
-           f'Key Checkpoints: {values[2]}\n' \
-           f'Last Key Checkpoint: {values[3]}\n' \
+    desc = f'Checkpoints: {cpdata.cp_count}\n' \
+           f'Checkpoint Groups: {cpdata.group_count}\n' \
+           f'Key Checkpoints: {cpdata.kcp_count}\n' \
+           f'Last Key Checkpoint: {cpdata.last_kcp}\n' \
            '\n' \
-           f'95% from Checkpoint 0: {values[4]}\n' \
-           f'95% from Checkpoint 1: {values[5]}\n' \
-           'Last Key Checkpoint %: ' + '{:.2f}'.format(float(values[6]) * 100) + '%\n' \
-           'Maximum % for Ultra: ' + '{:.2f}'.format(float(values[7]) * 100) + '%\n' \
-           '\n' \
-           f'Anomalies: {values[8]}'
+           f'95% from Checkpoint 0: {cpdata.from_cp0}\n' \
+           f'95% from Checkpoint 1: {cpdata.from_cp1}\n' \
+           'Last Key Checkpoint %: ' + '{:.2f}'.format(float(cpdata.last_kcp_p) * 100) + '%\n' \
+           'Maximum % for Ultra: ' + '{:.2f}'.format(float(cpdata.max_ultra_p) * 100) + '%\n' \
 
     embed = discord.Embed(title=track.name, description=desc, color=0xCA00FF)
     await ctx.send(content='', embed=embed)
-    await track.s.delete()
 
 
-@bot.command(name='pop')
+# TODO: reimplement \pop if needed?
+'''@bot.command(name='pop')
 async def pop(ctx, *args):
+    pass
+    popcat = Map(['name', 'id', 'desc'], [
+        ['M1', 0, 'Current month (M1)'],
+        ['M3', 1, 'Within last 3 months (M3)'],
+        ['M6', 2, 'Within last 6 months (M6)'],
+        ['M9', 3, 'Within last 9 months (M9)'],
+        ['M12', 4, 'Within last 12 months (M12)']
+    ])
     if not args:
         await ctx.send('\\pop [timeframe] <track name OR rank #> - Get track\'s popularity ranking\n'
                        '  Valid timeframes: M1, M3, M6, M9, M12')
@@ -464,37 +345,27 @@ async def pop(ctx, *args):
             await s.delete()
             return
 
-    await s.edit(content='Track ranking could not be found.')
+    await s.edit(content='Track ranking could not be found.')'''
 
 
 @bot.command(name='gcps')
-async def gcps(ctx, *args):
-    settings = {'ctgp': True, 'new': True, 'regs': True, 'atts': ['.szs', '.kmp'],
-                'help': '\\gcps [option] <track name> - Generates Desmos graph of the full track.'}
+@tracklist.handle_input(regs=True, filetypes=('szs', 'kmp'), extra_args=('sp',))
+async def gcps(ctx, track: TrackData, *args):
+    """ \\gcps [option] <track name> - Generates Desmos graph of the full track. """
+    splitpaths = ('sp' in args)
 
-    option = ''
-    args = list(args)
-    if args and args[0] in ['sp']:
-        option = args.pop(0)
+    if track.kmp_path() is None:
+        await w.wkmpt_encode(track.szs_path(), track.path + 'course.kmp')
 
-    track = TrackData()
-    await track.initialize(ctx, tl, args, settings)
-    if not track.success:
-        return
-
-    if not await w.kmp_encode(track.path, filename=track.file):
-        await track.s.edit(content='KMP extraction failed.')
-        return
-
-    if option or f'{track.name}.desmos.html' not in os.listdir(track.path):
-        with open(track.kmp(), 'rb') as f:
+    if splitpaths or f'{track.name}.desmos.html' not in os.listdir(track.path):
+        with open(track.kmp_path(), 'rb') as f:
             rawkmp = kmp.parse(f)
 
         gcplist = gcpfinder.find(rawkmp, bounds=(-500000, 500000))
-        html = gcpfinder.graph(rawkmp, gcplist, option, bounds=(-500000, 500000))
+        html = gcpfinder.graph(rawkmp, gcplist, splitpaths, bounds=(-500000, 500000))
 
         append = f'{html}\n<!--{", ".join([str(g) for g in gcplist])}-->'
-        if option:
+        if splitpaths:
             track.path = paths.TEMP
         with open(f'{track.path}{track.name}.desmos.html', 'w') as out:
             out.write(append)
@@ -509,24 +380,19 @@ async def gcps(ctx, *args):
 
     msg = f'**{track.name}**\n{gcpfound}\nDownload file and open in browser:'
     await ctx.send(content=msg, file=discord.File(f'{track.path}{track.name}.desmos.html'))
-    await track.s.delete()
 
 
 @bot.command(name='random')
-async def rand(ctx, arg=''):
-    row = sheet[0][int(218*random.random() + 2)]
-    ng = ['Not Glitched', 'Lap 4 Bug', 'NLC Glitch']
-    if arg.lower() == 'all':
-        await info(ctx, row[0])
+async def random_track(ctx, arg=''):
+    track = tracklist[int(218*random.random() + 2)]
+    if arg.lower() == 'all' or track.not_yet_broken():
+        await info(ctx, track)
     else:
-        if row[2][0:3] != 'Yes' and len(row) >= 4 and row[3] in ng \
-                and not (len(row) > 4 and row[4] in d.gcat):
-            await info(ctx, row[0])
-        else:
-            await rand(ctx)
+        await random_track(ctx)
 
 
 if __name__ == '__main__':
+    # TODO: this is stupid, add as extension instead
     try:
         # noinspection PyUnresolvedReferences
         import extra

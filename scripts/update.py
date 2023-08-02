@@ -3,8 +3,9 @@ import shutil
 import requests
 from dotenv import load_dotenv
 
+import utils.kmp
 from api import data
-from api.spreadsheet import Spreadsheet
+from api.spreadsheet_old import Spreadsheet
 from utils import paths, kmp, wiimms
 
 CT_COUNT = 218
@@ -130,7 +131,7 @@ def ctgp_update(sheet: Spreadsheet, archive_info=True):
 
         with open(PATH + '_UPDATE/' + alias(t['name']).replace(':', '') + '/course.kmp', 'rb') as f:
             kmpobj = kmp.parse(f)
-        values = wiimms.calculate_cpinfo(kmpobj, t['name'])
+        values = utils.kmp.calculate_cpinfo(kmpobj, t['name'])
 
         s0.append([alias(t['name']), t['version']])
         s1.append([alias(t['name']), fullname, ', '.join(t['authors']), slot, wid, t['trackId']] + values + ['', '-'])
