@@ -5,7 +5,7 @@ from enum import Enum, auto
 import fnmatch
 from difflib import get_close_matches
 
-from utils import paths
+from core import paths
 from utils.kmp import CheckpointData
 
 

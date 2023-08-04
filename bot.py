@@ -1,18 +1,17 @@
 import fnmatch
-import json
 import os
 import random
 from datetime import datetime
 
 import discord
-import requests
-from discord.ext.commands import Bot
+from discord.ext.commands import Bot, Command
 from dotenv import load_dotenv
 
-import utils.kmp
-from api import spreadsheet, gamedata, data as d
-from utils import wiimms as w, kmp, paths, gcpfinder
-from components.tracklist import TrackList, TrackData, Category
+from api import spreadsheet, gamedata, chadsoft
+from api.wiimms_tools import *
+from utils import kmp, gcpfinder
+from core import paths
+from core.tracklist import TrackList, TrackData, Category
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -20,7 +19,7 @@ SHEET_ID = os.getenv('SHEETS_KEY')
 
 client = spreadsheet.authorize('./token.json')
 tracklist = TrackList(
-    sheet=spreadsheet.get_formatted(client, SHEET_ID),
+    sheet=spreadsheet.get_all_formatted(client, SHEET_ID),
     regs=gamedata.regs.list('name')
 )
 
@@ -30,6 +29,8 @@ bot = Bot(command_prefix='\\', help_command=None)
 
 @bot.event
 async def on_ready():
+    if os.path.isfile('./core/extra.py'):
+        await bot.load_extension('core.extra')
     await bot.change_presence(activity=discord.Game('\\help for commands'))
     print(f'Connected: {datetime.now().strftime("%m/%d/%Y %H:%M:%S")}')
 
@@ -47,13 +48,29 @@ async def on_command_error(ctx, error):
 
 @bot.command(name='help')
 async def cmd_help(ctx):
-    embed = discord.Embed(title="Commands:", description=d.cmdlist, color=0xCA00FF)
+    cmdlist = '\n'.join((v.help or v.name) for v in globals().values() if isinstance(v, Command))
+    footer = '<track name> accepts any custom track in CTGP. Track names are case insensitive and ' \
+             'can be replaced with abbreviations ("dcr", "snes mc2", etc.).'
+    embed = discord.Embed(title="Commands:", description=cmdlist + '\n\n' + footer, color=0xCA00FF)
     await ctx.send(embed=embed)
 
 
 @bot.command(name='links')
 async def links(ctx):
-    desc = f'CTGP Ultras Spreadsheet:\n{spreadsheet.public_url(SHEET_ID)}\n\n{d.links}'
+    desc = f'CTGP Ultras Spreadsheet:\n' \
+           f'{spreadsheet.public_url(SHEET_ID)}\n\n' \
+            'CTGP Tockdom Page:\n' \
+            'http://wiki.tockdom.com/wiki/CTGPR\n\n' \
+            'CTGP Track Files Dropbox:\n' \
+            'https://www.dropbox.com/sh/9phl0p4d663fmel/AAD0Xo4JyuYZng3AW4ynb2Nwa?dl=0\n\n' \
+            'CTGP Upcoming Track Updates:\n' \
+            'https://docs.google.com/spreadsheets/d/1xwhKoyypCWq5tCRTI69ijJoDiaoAVsvYAxz-q4UBNqM/edit?usp=sharing\n\n' \
+            'Lorenzi\'s KMP Editor:\n' \
+            'https://github.com/hlorenzi/kmp-editor/releases\n\n' \
+            'Brawlcrate:\n' \
+            'https://github.com/soopercool101/BrawlCrate/releases\n\n' \
+            'Download CTools:\n' \
+            'http://www.chadsoft.co.uk/ctools/setup/ctoolssetup.msi'
     embed = discord.Embed(title='**Resources:**', description=desc, color=0xCA00FF)
     await ctx.send(embed=embed)
 
@@ -120,33 +137,21 @@ async def get_bkt(ctx, track: TrackData, *args):
         elif a == 'no-sc':
             category = 2
         elif a == 'flap':
-            is_flap = '-fast-lap'
+            is_flap = True
         elif a == '200cc' or a == '200':
             is_200 = True
 
-    # Build URL & get JSON
-    if is_200:
-        category += 4
-    suffix = f'0{category}{is_flap}'
-
     if track.category == Category.REG:
-        reg = gamedata.regs.get(track.name)
+        reg = gamedata.regs.get_all(track.name)
         slot = reg['slot']
         sha1 = reg['sha1']
     else:
         slot = track.sheetdata.slot
         sha1 = track.sheetdata.sha1
 
-    lb_url = f'https://tt.chadsoft.co.uk/leaderboard/{slot}/{sha1}/{suffix}'
-    lb_req = requests.get(lb_url + '.json')
-    lb_req.encoding = 'utf-8-sig'
-    try:
-        lb = lb_req.json()
-    except json.decoder.JSONDecodeError:
-        await ctx.send('Category does not exist.')
-        return
+    leaderboard = chadsoft.get_leaderboard(slot, sha1, category, is_flap, is_200)
+    bkt_url = chadsoft.get_bkt_url(leaderboard)
 
-    bkt_url = 'https://chadsoft.co.uk/time-trials' + lb['ghosts'][0]['_links']['item']['href'][0:-4] + 'html'
     await ctx.send(bkt_url)
 
 
@@ -170,9 +175,9 @@ async def szs(ctx, track: TrackData):
 async def get_kmp(ctx, track: TrackData):
     """ \\kmp <track name> - Download track\'s kmp and kcl files """
     if track.kmp_path() is None:
-        await w.wkmpt_encode(track.szs_path(), track.path + 'course.kmp')
+        await wkmpt.encode(track.szs_path(), track.path + 'course.kmp')
     if track.kcl_path() is None:
-        await w.wkclt_encode(track.szs_path(), track.path + 'course.kcl')
+        await wkclt.encode(track.szs_path(), track.path + 'course.kcl')
 
     title = f'**{track.name}**'
     if track.is_cleaned():
@@ -189,11 +194,11 @@ async def kmptext(ctx, track: TrackData):
     """ \\kmptext <track name> - Get track kmp in both raw and text form """
     files = []
     if track.kmp_path() is None and track.szs_path() is not None:
-        await w.wkmpt_encode(track.szs_path(), track.path + 'course.kmp')
+        await wkmpt.encode(track.szs_path(), track.path + 'course.kmp')
         files += [discord.File(track.kmp_path(), filename='course.kmp')]
 
     if not track.has_file('kmp.txt') or not track.has_file('kmp_errors.txt'):
-        await w.wkmpt_decode(track.kmp_path(), track.path + 'kmp.txt', track.path + 'kmp_errors.txt')
+        await wkmpt.decode(track.kmp_path(), track.path + 'kmp.txt', track.path + 'kmp_errors.txt')
     files += [discord.File(track.path + 'kmp.txt'), discord.File(track.path + 'kmp_errors.txt')]
 
     await ctx.send(f'**{track.name}**', files=files)
@@ -205,11 +210,11 @@ async def kcltext(ctx, track: TrackData):
     """ \\kcltext <track name> - Get track kcl in both raw and text form """
     files = []
     if track.kmp_path() is None and track.szs_path() is not None:
-        await w.wkclt_encode(track.szs_path(), track.path + 'course.kcl')
+        await wkclt.encode(track.szs_path(), track.path + 'course.kcl')
         files += [discord.File(track.kcl_path(), filename='course.kcl')]
 
     if not track.has_file('kcl_flags.txt'):
-        await w.wkclt_flags(track.kcl_path(), track.path + 'kcl_flags.txt')
+        await wkclt.flags(track.kcl_path(), track.path + 'kcl_flags.txt')
     files += [discord.File(track.path + 'kcl_flags.txt')]
 
     title = f'**{track.name}**'
@@ -236,10 +241,10 @@ async def cpinfo(ctx, track: TrackData):
     cpdata = track.cpdata
     if cpdata is None:    # not on spreadsheet
         if track.kmp_path() is None:
-            await w.wkmpt_encode(track.szs_path(), track.path + 'course.kmp')
+            await wkmpt.encode(track.szs_path(), track.path + 'course.kmp')
         with open(track.kmp_path(), 'rb') as f:
             rawkmp = kmp.parse(f)
-        cpdata = utils.kmp.calculate_cpinfo(rawkmp, track.name, silent=True)
+        cpdata = kmp.calculate_cpinfo(rawkmp, track.name, silent=True)
 
     if cpdata.from_cp0 == '-1':
         await ctx.send('Checkpoint info unavailable for this track (multiple finish lines).')
@@ -355,7 +360,7 @@ async def gcps(ctx, track: TrackData, *args):
     splitpaths = ('sp' in args)
 
     if track.kmp_path() is None:
-        await w.wkmpt_encode(track.szs_path(), track.path + 'course.kmp')
+        await wkmpt.encode(track.szs_path(), track.path + 'course.kmp')
 
     if splitpaths or f'{track.name}.desmos.html' not in os.listdir(track.path):
         with open(track.kmp_path(), 'rb') as f:
@@ -392,13 +397,5 @@ async def random_track(ctx, arg=''):
 
 
 if __name__ == '__main__':
-    # TODO: this is stupid, add as extension instead
-    try:
-        # noinspection PyUnresolvedReferences
-        import extra
-        extra.initialize(bot)
-    except ImportError:
-        pass
-
     print(f'Process started: {datetime.now().strftime("%m/%d/%Y %H:%M:%S")}')
     bot.run(TOKEN)

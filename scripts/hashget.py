@@ -7,8 +7,9 @@ import requests
 from dotenv import load_dotenv
 
 from api.spreadsheet_old import Spreadsheet
+from api.wiimms_tools import *
 from hashcheck import hash_check
-from utils import paths, wiimms as w
+from core import paths
 
 PATH = paths.CTGP
 
@@ -41,23 +42,24 @@ async def main(i=15):
     incorrect = await hash_check(s)
     print(f'Found {len(incorrect)} files with incorrect SHA1s.')
 
+    # TODO: fix wiimms tools calls
     for track, sha1 in incorrect[i:]:
         if not os.path.isdir(f'{path}{track}'):
             os.mkdir(f'{path}{track}')
         if not await download_wbz(path + track, sha1, track):
             shutil.rmtree(f'{path}{track}')
             continue
-        if not await w.szs_encode(f'{path}{track}/', f'{track}.wbz'):
+        if not await wszst.encode(f'{path}{track}/{track}.wbz'):
             shutil.rmtree(f'{path}{track}')
             continue
         old_szs = fnmatch.filter(os.listdir(f'{PATH}{track}/'), '*.szs')[0]
         new_szs = fnmatch.filter(os.listdir(f'{path}{track}/'), '*.szs')[0]
-        if await w.szs_cmp(f'{PATH}{track}/{old_szs}', f'{path}{track}/{new_szs}'):
+        if await wszst.compare(f'{PATH}{track}/{old_szs}', f'{path}{track}/{new_szs}'):
             print('SZS files are identical.')
             shutil.rmtree(f'{path}{track}')
             continue
-        await w.wkmpt_encode(f'{path}{track}/', new_szs, 'course.kmp')
-        await w.wkclt_encode(f'{path}{track}/', new_szs, 'course.kcl')
+        await wkmpt.encode(f'{path}{track}/{new_szs}', f'{path}{track}/course.kmp')
+        await wkclt.encode(f'{path}{track}/{new_szs}', f'{path}{track}/course.kcl')
     print('Done.')
 
 

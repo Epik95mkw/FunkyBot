@@ -4,7 +4,8 @@ import os
 from dotenv import load_dotenv
 
 from api.spreadsheet_old import Spreadsheet
-from utils import paths, wiimms
+from api.wiimms_tools import wszst
+from core import paths
 
 PATH = paths.CTGP
 
@@ -16,7 +17,7 @@ async def hash_check(sheet: Spreadsheet) -> list[tuple]:
 
     for i, track in enumerate(tracks):
         szs = fnmatch.filter(os.listdir(PATH + track), '*.szs')[0]
-        sha1 = await wiimms.szs_hash(PATH + track, szs)
+        sha1 = await wszst.sha1(PATH + track + '/' + szs)
         sha1 = sha1.split()[0].upper()
         if sha1 != lb_sha1s[i]:
             incorrect.append((track, lb_sha1s[i]))

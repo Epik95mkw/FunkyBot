@@ -1,7 +1,7 @@
 import fnmatch
 import os
 import shutil
-from utils import paths
+from core import paths
 
 
 def dropbox():

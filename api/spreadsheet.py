@@ -4,6 +4,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 
 BASE_URL = 'https://sheets.googleapis.com/v4/spreadsheets'
 REQ_FIELDS = 'sheets(data(rowData(values(formattedValue,hyperlink))))'
+SCOPES = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
 
 
 class SheetArea:
@@ -20,13 +21,12 @@ class SheetArea:
 
 
 def authorize(token_path: str) -> gspread.Client:
-    scopes = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-    creds = ServiceAccountCredentials.from_json_keyfile_name(token_path, scopes)
+    creds = ServiceAccountCredentials.from_json_keyfile_name(token_path, SCOPES)
     client = gspread.authorize(creds)
     return client
 
 
-def get(client: gspread.Client, sheet_id: str):
+def get_all(client: gspread.Client, sheet_id: str):
     res = client.request('get', f'{BASE_URL}/{sheet_id}?fields={REQ_FIELDS}')
     if not res.ok:
         print(f'Failed to fetch google sheets data (response code {res.status_code}: {res.reason})')
@@ -34,9 +34,9 @@ def get(client: gspread.Client, sheet_id: str):
     return res.json()
 
 
-def get_formatted(client: gspread.Client, sheet_id: str):
+def get_all_formatted(client: gspread.Client, sheet_id: str):
     out = []
-    data = get(client, sheet_id)
+    data = get_all(client, sheet_id)
 
     for sheet in data['sheets']:
         rowlist = []
@@ -58,3 +58,29 @@ def get_formatted(client: gspread.Client, sheet_id: str):
 
 def public_url(sheet_id: str):
     return f'https://docs.google.com/spreadsheets/d/{sheet_id}'
+
+
+def batch_cut_paste(client: gspread.Client, sheet_id: str):
+    body = {"requests": []}
+    for op in ops:
+        start, size, dest = op
+
+        body["requests"].append({
+            "cutPaste": {
+                "source": {
+                    "sheetId": start.page.id,
+                    "startRowIndex": start.row - 1,
+                    "endRowIndex": start.row + size[0] - 1,
+                    "startColumnIndex": start.col,
+                    "endColumnIndex": start.col + size[1]
+                },
+                "destination": {
+                    "sheetId": dest.page.id,
+                    "rowIndex": dest.row - 1,
+                    "columnIndex": dest.col
+                },
+                "pasteType": "PASTE_NORMAL",
+            }
+        })
+
+    client.request('post', f'{BASE_URL}/{sheet_id}:batchUpdate', json=body)
