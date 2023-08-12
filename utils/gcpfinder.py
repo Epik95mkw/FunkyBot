@@ -24,7 +24,7 @@ TEMPLATE = \
     '''
 
 
-def graph(kmp, gcplist: list, splitpaths=False, bounds=(None, None)):
+def graph(kmp, gcplist: list, splitpaths=False, fillquads=True, bounds=(None, None)):
     if gcplist is None:
         gcplist = ['']
     ckpt = kmp['CKPT']['entries']
@@ -107,12 +107,14 @@ def graph(kmp, gcplist: list, splitpaths=False, bounds=(None, None)):
             vborder1 = f'-({b_[nexti]}-{b_[i]})(x-{a_[nexti]})+({a_[nexti]}-{a_[i]})(y-{b_[nexti]})'
             vborder2 = f'(({d_[nexti]}-{d_[i]})(x-{c_[i]})-({c_[nexti]}-{c_[i]})(y-{d_[i]}))'
 
-            # Quadrilateral shading
             to_script(f'B_{{{i}t{nexti}}}=({vborder1}) * {vborder2} + \\\\left|{vborder1}\\\\right| * -{vborder2}')
             to_script(f'F_{{{i}t{nexti}}}=\\\\frac{{{vneg[i]}}}{{{vneg[i]} - '
                       f'({s0[nexti]}(x-{a_[nexti]})+{s1[nexti]}(y-{b_[nexti]}))}}')
-            to_script(f'B_{{{i}t{nexti}}} > 0 \\\\left\\\\{{R_{{{nexti}t{i}}} > 0'
-                      f'\\\\right\\\\}} \\\\left\\\\{{F_{{{i}t{nexti}}} > 0\\\\right\\\\}}', color)
+
+            # Quadrilateral shading
+            if fillquads:
+                to_script(f'B_{{{i}t{nexti}}} > 0 \\\\left\\\\{{R_{{{nexti}t{i}}} > 0'
+                          f'\\\\right\\\\}} \\\\left\\\\{{F_{{{i}t{nexti}}} > 0\\\\right\\\\}}', color)
 
             # Split path GCPs (end of split path)
             if splitpaths and len(nexts) > 1 and ckpt[i]['type'] == 255:

@@ -6,7 +6,8 @@ import fnmatch
 from difflib import get_close_matches
 
 from core import paths
-from utils.kmp import CheckpointData
+from utils.kmpreader import CheckpointData
+from utils.map import Map
 
 
 class Category(Enum):
@@ -41,6 +42,9 @@ class TrackData:
     name: str
     category: Category
     path: str
+    slot: Optional[str]
+    sha1: Optional[str]
+    aliases: list
     sheetdata: Optional[SheetData]
 
     @staticmethod
@@ -50,15 +54,19 @@ class TrackData:
         track.category = Category.CTGP
         track.path = paths.CTGP + name.replace(':', '') + '/'
         track.sheetdata = sheetdata
+        track.slot = sheetdata.slot
+        track.sha1 = sheetdata.sha1
         return track
 
     @staticmethod
-    def from_regdata(name: str):
+    def from_regdata(regdata: dict):
         track = TrackData()
-        track.name = name
+        track.name = regdata['name']
         track.category = Category.REG
-        track.path = paths.REGS + name.replace(':', '') + '/'
+        track.path = paths.REGS + regdata['name'] + '/'
         track.sheetdata = None
+        track.slot = regdata['slot']
+        track.sha1 = regdata['sha1']
         return track
 
     @staticmethod
@@ -68,8 +76,10 @@ class TrackData:
         track.category = Category.UNKNOWN
         track.path = paths.TEMP
         track.sheetdata = None
+        track.slot = None
+        track.sha1 = None
         paths.clear_temp()
-        await file.save(fp=track.szs_path())
+        await file.save(fp=paths.TEMP + file.filename)
         return track
 
     def __str__(self):
@@ -89,11 +99,11 @@ class TrackData:
 
     def kmp_path(self) -> Optional[str]:
         file = self.path + 'course.kmp'
-        return None if file not in os.listdir(self.path) else file
+        return None if not os.path.isfile(file) else file
 
     def kcl_path(self) -> Optional[str]:
         file = self.path + 'course.kcl'
-        return None if file not in os.listdir(self.path) else file
+        return None if not os.path.isfile(file) else file
 
     def has_file(self, filename) -> bool:
         return filename in os.listdir(self.path)
@@ -123,10 +133,11 @@ class TrackData:
 # TODO: Should store fully initialized TrackData objects, not just names
 class TrackList:
 
-    def __init__(self, sheet: list, regs: list):
+    def __init__(self, sheet: list, regs: Map):
         self.data = {}
+        self.aliases = dict(zip([s.upper() for s in regs.list('alias')], regs.list('name')))
 
-        for row1, row2 in zip(sheet[0], sheet[1])[1:]:
+        for row1, row2 in zip(sheet[0][1:], sheet[1][1:]):
             trackname = row1[0]['value']
             sheetdata = SheetData(
                 wiki_url=     row1[0]['link'],
@@ -155,8 +166,8 @@ class TrackList:
             )
             self.data.setdefault(trackname.upper(), TrackData.from_spreadsheet(trackname, sheetdata))
 
-        for name in regs:
-            self.data.setdefault(name.upper(), TrackData.from_regdata(name))
+        for name in regs.list('name'):
+            self.data.setdefault(name.upper(), TrackData.from_regdata(regs.get(name)))
 
 
     def __getitem__(self, key: Union[int, str]) -> TrackData:
@@ -191,11 +202,16 @@ class TrackList:
                 file = None
                 if ctx.message.attachments:
                     file = ctx.message.attachments[0]
-                track_input = (a for a in args if a not in extra_args)
-                extra_input = (a for a in args if a in extra_args)
+                track_input = [a for a in args if a not in extra_args]
+                extra_input = [a for a in args if a in extra_args]
+
+                # handle TrackData object input (for internally calling commands)
+                if track_input and isinstance(track_input[0], TrackData):
+                    track = track_input[0]
+                    response = None
 
                 # handle text input
-                if track_input:
+                elif track_input:
                     response = await ctx.send('Searching...')
                     track_name = ' '.join(track_input).upper().strip()
                     track = self.search(track_name)
@@ -229,23 +245,29 @@ class TrackList:
                 if response is not None:
                     await response.delete()
 
+            wrapper.__name__ = cmd.__name__
+            wrapper.__doc__ = cmd.__doc__
             return wrapper
         return decorator
 
 
     def search(self, track_in: str) -> TrackData:
         """ Takes a string input and returns the closest matching track name, or None if no matches. """
-        # Step 1: Looks for full track name, autocorrects slightly
+        # Step 1: Look for explicit alias
+        if track_in in self.aliases:
+            return self[self.aliases[track_in]]
+
+        # Step 2: Looks for full track name, autocorrects slightly
         matches = get_close_matches(track_in, self.upper(), 1, 0.85)
         if len(matches) != 0:
             return self[str(matches[0])]
 
-        # Step 2: Looks for abbreviations
+        # Step 3: Looks for abbreviations
         abbrev = track_in.replace(' ', '')
         if abbrev in self.abbrev():
             return self[self.abbrev().index(abbrev)]
 
-        # Step 3: I can't remember what this does
+        # Step 4: I can't remember what this does
         prefixes = ['SNES', 'GBA', 'N64', 'GCN', 'DS', 'CTR', 'DKR', 'GP', 'SADX']
         for n in range(2):
             mlist = []

@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 from api import gamedata
 from api.spreadsheet_old import Spreadsheet
-from utils import kmp
+from utils import kmpreader
 from core import paths
 
 CT_COUNT = 218
@@ -130,8 +130,8 @@ def ctgp_update(sheet: Spreadsheet, archive_info=True):
             fullname, wid = get_archive_info(t['trackId'])
 
         with open(PATH + '_UPDATE/' + alias(t['name']).replace(':', '') + '/course.kmp', 'rb') as f:
-            kmpobj = kmp.parse(f)
-        cpdata = kmp.calculate_cpinfo(kmpobj, t['name'])
+            kmpobj = kmpreader.parse(f)
+        cpdata = kmpreader.calculate_cpinfo(kmpobj, t['name'])
         cpvalues = [
             cpdata.group_count,
             cpdata.cp_count,
