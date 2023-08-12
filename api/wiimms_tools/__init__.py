@@ -1,3 +1,1 @@
-import wkclt
-import wkmpt
-import wszst
+from api.wiimms_tools import wkclt, wkmpt, wszst
