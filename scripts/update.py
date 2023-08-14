@@ -3,7 +3,11 @@ import shutil
 import requests
 from dotenv import load_dotenv
 
-from utils import *
+import core.cpinfo
+from api import gamedata
+from api.spreadsheet_old import Spreadsheet
+from utils import kmpreader
+from core import paths
 
 CT_COUNT = 218
 SHEET_RANGE = ('A2:G219', 'A2:P219', None)
@@ -121,17 +125,27 @@ def ctgp_update(sheet: Spreadsheet, archive_info=True):
         fullname = ''
         wid = ''
         slotid = str(t['_links']['item']['href'])[13:15]
-        slot = f'{slotid} ({dicts.regs.get(slotid)["alias"]})'
+        slot = f'{slotid} ({gamedata.regs.get_all(slotid)["alias"]})'
 
         if archive_info:
             fullname, wid = get_archive_info(t['trackId'])
 
         with open(PATH + '_UPDATE/' + alias(t['name']).replace(':', '') + '/course.kmp', 'rb') as f:
-            kmpobj = kmp.parse(f)
-        values = wiimms.calculate_cpinfo(kmpobj, t['name'])
+            kmpobj = kmpreader.parse(f)
+        cpdata = core.cpinfo.calculate_cpinfo(kmpobj, t['name'])
+        cpvalues = [
+            cpdata.group_count,
+            cpdata.cp_count,
+            cpdata.kcp_count,
+            cpdata.last_kcp,
+            cpdata.from_cp0,
+            cpdata.from_cp1,
+            cpdata.last_kcp_p,
+            cpdata.max_ultra_p,
+        ]
 
         s0.append([alias(t['name']), t['version']])
-        s1.append([alias(t['name']), fullname, ', '.join(t['authors']), slot, wid, t['trackId']] + values + ['', '-'])
+        s1.append([alias(t['name']), fullname, ', '.join(t['authors']), slot, wid, t['trackId']] + cpvalues + ['', '-'])
 
     sheet[0].update(f'A{CT_COUNT + 2 - new_count}:B{CT_COUNT + 1}', s0)
     sheet[1].update(f'A{CT_COUNT + 2 - new_count}:P{CT_COUNT + 1}', s1)

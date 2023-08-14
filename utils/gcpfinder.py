@@ -24,7 +24,7 @@ TEMPLATE = \
     '''
 
 
-def gcpgraph(kmp, gcplist: list, arg='', bounds=(None, None)):
+def graph(kmp, gcplist: list, splitpaths=False, fillquads=True, bounds=(None, None)):
     if gcplist is None:
         gcplist = ['']
     ckpt = kmp['CKPT']['entries']
@@ -32,11 +32,6 @@ def gcpgraph(kmp, gcplist: list, arg='', bounds=(None, None)):
     numcps = len(ckpt)
     group = 0
     script = []
-
-    if arg == 'sp':
-        splitpath = True
-    else:
-        splitpath = False
 
     a_ = []
     b_ = []
@@ -112,15 +107,17 @@ def gcpgraph(kmp, gcplist: list, arg='', bounds=(None, None)):
             vborder1 = f'-({b_[nexti]}-{b_[i]})(x-{a_[nexti]})+({a_[nexti]}-{a_[i]})(y-{b_[nexti]})'
             vborder2 = f'(({d_[nexti]}-{d_[i]})(x-{c_[i]})-({c_[nexti]}-{c_[i]})(y-{d_[i]}))'
 
-            # Quadrilateral shading
             to_script(f'B_{{{i}t{nexti}}}=({vborder1}) * {vborder2} + \\\\left|{vborder1}\\\\right| * -{vborder2}')
             to_script(f'F_{{{i}t{nexti}}}=\\\\frac{{{vneg[i]}}}{{{vneg[i]} - '
                       f'({s0[nexti]}(x-{a_[nexti]})+{s1[nexti]}(y-{b_[nexti]}))}}')
-            to_script(f'B_{{{i}t{nexti}}} > 0 \\\\left\\\\{{R_{{{nexti}t{i}}} > 0'
-                      f'\\\\right\\\\}} \\\\left\\\\{{F_{{{i}t{nexti}}} > 0\\\\right\\\\}}', color)
+
+            # Quadrilateral shading
+            if fillquads:
+                to_script(f'B_{{{i}t{nexti}}} > 0 \\\\left\\\\{{R_{{{nexti}t{i}}} > 0'
+                          f'\\\\right\\\\}} \\\\left\\\\{{F_{{{i}t{nexti}}} > 0\\\\right\\\\}}', color)
 
             # Split path GCPs (end of split path)
-            if splitpath and len(nexts) > 1 and ckpt[i]['type'] == 255:
+            if splitpaths and len(nexts) > 1 and ckpt[i]['type'] == 255:
                 to_script(f'B_{{{i}t{nexti}}} > 0 \\\\left\\\\{{B_{{{nexti}t{nexti + 1}}} > 0\\\\right\\\\}} '
                           f'\\\\left\\\\{{{vneg[i]} > 0\\\\right\\\\}}', ORANGE)
 
@@ -129,7 +126,7 @@ def gcpgraph(kmp, gcplist: list, arg='', bounds=(None, None)):
                       f'({s0[previ]}(x-{a_[previ]})+{s1[previ]}(y-{b_[previ]}))}}')
 
             # Split path GCPs (beginning of split path)
-            if splitpath and len(prevs) > 1 and ckpt[i]['type'] == 255:
+            if splitpaths and len(prevs) > 1 and ckpt[i]['type'] == 255:
                 to_script(f'B_{{{previ}t{i}}} > 0 \\\\left\\\\{{B_{{{i}t{i + 1}}} > 0\\\\right\\\\}} '
                           f'\\\\left\\\\{{{vneg[i]} < 0\\\\right\\\\}}', ORANGE)
 
@@ -151,7 +148,7 @@ def gcpgraph(kmp, gcplist: list, arg='', bounds=(None, None)):
 
 
 # noinspection PyDeprecation
-def gcpfind(kmp, bounds=(None, None), verbose=False):
+def find(kmp, bounds=(None, None), verbose=False):
     ckpt = kmp['CKPT']['entries']
     ckph = kmp['CKPH']['entries']
     numcps = len(ckpt)

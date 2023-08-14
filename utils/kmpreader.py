@@ -1,8 +1,8 @@
 from construct import *
 
 
-def parse(f):
-    kmpobj = kmp_format.parse(f.read())
+def parse(file):
+    kmpobj = kmp_format.parse(file.read())
     compute_ckph_layers(kmpobj, 0, 1)
     return dict(kmpobj)
 
