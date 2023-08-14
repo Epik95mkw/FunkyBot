@@ -3,5 +3,9 @@
 /token.json
 /core/extra.py
 /test.py
-/tracklist.txt
 /venv/
+
+Dockerfile
+.dockerignore
+fly.toml
+

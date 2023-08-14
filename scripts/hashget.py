@@ -7,7 +7,7 @@ import requests
 from dotenv import load_dotenv
 
 from api.spreadsheet_old import Spreadsheet
-from api.wiimms_tools import *
+from wiimms_tools import *
 from hashcheck import hash_check
 from core import paths
 

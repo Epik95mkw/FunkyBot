@@ -4,8 +4,8 @@ import os
 from dotenv import load_dotenv
 
 from api.spreadsheet_old import Spreadsheet
-from api.wiimms_tools import wszst
 from core import paths
+from wiimms_tools import wszst
 
 PATH = paths.CTGP
 

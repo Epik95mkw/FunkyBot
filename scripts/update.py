@@ -3,6 +3,7 @@ import shutil
 import requests
 from dotenv import load_dotenv
 
+import core.cpinfo
 from api import gamedata
 from api.spreadsheet_old import Spreadsheet
 from utils import kmpreader
@@ -131,7 +132,7 @@ def ctgp_update(sheet: Spreadsheet, archive_info=True):
 
         with open(PATH + '_UPDATE/' + alias(t['name']).replace(':', '') + '/course.kmp', 'rb') as f:
             kmpobj = kmpreader.parse(f)
-        cpdata = kmpreader.calculate_cpinfo(kmpobj, t['name'])
+        cpdata = core.cpinfo.calculate_cpinfo(kmpobj, t['name'])
         cpvalues = [
             cpdata.group_count,
             cpdata.cp_count,

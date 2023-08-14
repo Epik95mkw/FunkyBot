@@ -6,7 +6,7 @@ import fnmatch
 from difflib import get_close_matches
 
 from core import paths
-from utils.kmpreader import CheckpointData
+from core.cpinfo import CheckpointData
 from utils.map import Map
 
 
@@ -93,15 +93,15 @@ class TrackData:
     def set_cpdata(self, data: CheckpointData):
         self.sheetdata.cpdata = data
 
-    def szs_path(self) -> Optional[str]:
+    def szs_file(self) -> Optional[str]:
         files = fnmatch.filter(os.listdir(self.path), '*.szs')
         return None if not files else self.path + files[0]
 
-    def kmp_path(self) -> Optional[str]:
+    def kmp_file(self) -> Optional[str]:
         file = self.path + 'course.kmp'
         return None if not os.path.isfile(file) else file
 
-    def kcl_path(self) -> Optional[str]:
+    def kcl_file(self) -> Optional[str]:
         file = self.path + 'course.kcl'
         return None if not os.path.isfile(file) else file
 

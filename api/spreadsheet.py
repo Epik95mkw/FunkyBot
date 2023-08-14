@@ -60,7 +60,7 @@ def public_url(sheet_id: str):
     return f'https://docs.google.com/spreadsheets/d/{sheet_id}'
 
 
-def batch_cut_paste(client: gspread.Client, sheet_id: str):
+def batch_cut_paste(client: gspread.Client, sheet_id: str, ops):
     body = {"requests": []}
     for op in ops:
         start, size, dest = op

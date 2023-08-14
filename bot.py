@@ -8,21 +8,19 @@ from discord.ext.commands import Bot, Command
 from dotenv import load_dotenv
 
 from api import spreadsheet, gamedata, chadsoft
-from api.wiimms_tools import *
-from utils import kmpreader, gcpfinder
-from core import paths
+from utils import szsreader, kmpreader, gcpfinder
+from core import paths, cpinfo
 from core.tracklist import TrackList, TrackData
 
 load_dotenv()
-TOKEN = os.getenv('DISCORD_TOKEN')
-SHEET_ID = os.getenv('SHEETS_KEY')
+DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
+SHEET_ID = os.getenv('SHEET_ID')
 
 client = spreadsheet.authorize('./token.json')
 tracklist = TrackList(
     sheet=spreadsheet.get_all_formatted(client, SHEET_ID),
     regs=gamedata.regs
 )
-
 
 bot = Bot(command_prefix='\\', help_command=None)
 
@@ -35,22 +33,15 @@ async def on_ready():
     print(f'Connected: {datetime.now().strftime("%m/%d/%Y %H:%M:%S")}')
 
 
-# TODO: write better error handler
 @bot.event
 async def on_command_error(ctx, error):
-    if isinstance(error, discord.ext.commands.errors.CommandNotFound):
-        return
-    await ctx.send(error)
-
-    if hasattr(error, 'original'):
-        raise error.original
-    else:
-        raise error
+    if not isinstance(error, discord.ext.commands.errors.CommandNotFound):
+        await ctx.send(error)
+        raise error.original if hasattr(error, 'original') else error
 
 
 # COMMANDS #############################################################################################################
-# TODO: Move all API stuff to their own modules
-# TODO: Remove wiimm's tools dependency?
+
 
 @bot.command(name='help')
 async def cmd_help(ctx):
@@ -163,7 +154,7 @@ async def szs(ctx, track: TrackData):
     if track.is_cleaned():
         title += '\n(Note: Use \kmp to get clean KCL file)'
 
-    file = track.szs_path()
+    file = track.szs_file()
     if file is None:
         raise FileNotFoundError('SZS file not found')
     else:
@@ -174,54 +165,18 @@ async def szs(ctx, track: TrackData):
 @tracklist.handle_input(regs=True, filetypes=('szs',))
 async def get_kmp(ctx, track: TrackData):
     """ \\kmp <track name> - Download track\'s kmp and kcl files """
-    if track.kmp_path() is None:
-        await wkmpt.encode(track.szs_path(), track.path + 'course.kmp')
-    if track.kcl_path() is None:
-        await wkclt.encode(track.szs_path(), track.path + 'course.kcl')
+    if track.kmp_file() is None:
+        szsreader.extract_file_to(track.szs_file(), track.path + 'course.kmp', 'course.kmp')
+    if track.kcl_file() is None:
+        szsreader.extract_file_to(track.szs_file(), track.path + 'course.kcl', 'course.kcl')
 
     title = f'**{track.name}**'
     if track.is_cleaned():
         title += '\n(Note: KCL modified to remove invalid triangles)'
 
-    files = [discord.File(track.kmp_path(), filename='course.kmp'),
-             discord.File(track.kcl_path(), filename='course.kcl')]
+    files = [discord.File(track.kmp_file(), filename='course.kmp'),
+             discord.File(track.kcl_file(), filename='course.kcl')]
     await ctx.send(f'**{track}**', files=files)
-
-
-@bot.command(name='kmptext')
-@tracklist.handle_input(regs=True, filetypes=('szs', 'kmp'))
-async def kmptext(ctx, track: TrackData):
-    """ \\kmptext <track name> - Get track kmp in both raw and text form """
-    files = []
-    if track.kmp_path() is None and track.szs_path() is not None:
-        await wkmpt.encode(track.szs_path(), track.path + 'course.kmp')
-        files += [discord.File(track.kmp_path(), filename='course.kmp')]
-
-    if not track.has_file('kmp.txt') or not track.has_file('kmp_errors.txt'):
-        await wkmpt.decode(track.kmp_path(), track.path + 'kmp.txt', track.path + 'kmp_errors.txt')
-    files += [discord.File(track.path + 'kmp.txt'), discord.File(track.path + 'kmp_errors.txt')]
-
-    await ctx.send(f'**{track.name}**', files=files)
-
-
-@bot.command(name='kcltext')
-@tracklist.handle_input(regs=True, filetypes=('szs', 'kcl'))
-async def kcltext(ctx, track: TrackData):
-    """ \\kcltext <track name> - Get track kcl in both raw and text form """
-    files = []
-    if track.kmp_path() is None and track.szs_path() is not None:
-        await wkclt.encode(track.szs_path(), track.path + 'course.kcl')
-        files += [discord.File(track.kcl_path(), filename='course.kcl')]
-
-    if not track.has_file('kcl_flags.txt'):
-        await wkclt.flags(track.kcl_path(), track.path + 'kcl_flags.txt')
-    files += [discord.File(track.path + 'kcl_flags.txt')]
-
-    title = f'**{track.name}**'
-    if track.is_cleaned():
-        title += '\n(Note: KCL modified to remove invalid triangles)'
-
-    await ctx.send(title, files=files)
 
 
 @bot.command(name='img')
@@ -240,11 +195,11 @@ async def cpinfo(ctx, track: TrackData):
     """ \\cpinfo <track name> - Get stats for track\'s checkpoint map """
     cpdata = track.cpdata
     if cpdata is None:    # not on spreadsheet
-        if track.kmp_path() is None:
-            await wkmpt.encode(track.szs_path(), track.path + 'course.kmp')
-        with open(track.kmp_path(), 'rb') as f:
+        if track.kmp_file() is None:
+            szsreader.extract_file_to(track.szs_file(), track.path + 'course.kmp', 'course.kmp')
+        with open(track.kmp_file(), 'rb') as f:
             rawkmp = kmpreader.parse(f)
-        cpdata = kmpreader.calculate_cpinfo(rawkmp, track.name, silent=True)
+        cpdata = cpinfo.calculate_cpinfo(rawkmp, track.name, silent=True)
 
     if cpdata.from_cp0 == '-1':
         await ctx.send('Checkpoint info unavailable for this track (multiple finish lines).')
@@ -271,13 +226,13 @@ async def gcps(ctx, track: TrackData, *args):
     splitpaths = 'sp' in args or 'split-paths' in args
     noquads = 'nf' in args or 'no-fill' in args
 
-    if track.kmp_path() is None:
-        await wkmpt.encode(track.szs_path(), track.path + 'course.kmp')
+    if track.kmp_file() is None:
+        szsreader.extract_file_to(track.szs_file(), track.path + 'course.kmp', 'course.kmp')
 
     if splitpaths or noquads or f'{track.name}.desmos.html' not in os.listdir(track.path):
         path = paths.TEMP if splitpaths or noquads else track.path
 
-        with open(track.kmp_path(), 'rb') as f:
+        with open(track.kmp_file(), 'rb') as f:
             rawkmp = kmpreader.parse(f)
 
         gcplist = gcpfinder.find(rawkmp, bounds=(-500000, 500000))
@@ -312,4 +267,4 @@ async def random_track(ctx, arg=''):
 
 if __name__ == '__main__':
     print(f'Process started: {datetime.now().strftime("%m/%d/%Y %H:%M:%S")}')
-    bot.run(TOKEN)
+    bot.run(DISCORD_TOKEN)
