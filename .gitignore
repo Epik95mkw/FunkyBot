@@ -1,9 +1,10 @@
 *.env
 *.pyc
-/token.json
-/core/extra.py
-/test.py
-/venv/
+venv/
+.idea/
+
+token.json
+core/extra.py
 
 Dockerfile
 .dockerignore
