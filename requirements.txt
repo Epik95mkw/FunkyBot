@@ -9,5 +9,5 @@ enum34~=1.1.10
 numpy~=1.23.2
 scipy~=1.9.1
 construct~=2.10.68
-wszst-yaz0~=1.2.0.post1
 dropbox~=11.36.2
+oead~=1.2.7

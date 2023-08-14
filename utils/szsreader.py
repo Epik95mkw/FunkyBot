@@ -1,5 +1,5 @@
 import struct
-import wszst_yaz0
+import oead
 from attr import dataclass
 
 
@@ -8,7 +8,7 @@ BYTEORDER_FCHAR = '>'
 
 
 def decompress(file) -> bytes:
-    return wszst_yaz0.decompress(file.read())
+    return oead.yaz0.decompress(file.read())
 
 
 def extract_file(path: str, filename: str):
