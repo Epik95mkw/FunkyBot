@@ -81,7 +81,7 @@ async def get_sheetlink(ctx):
 
 @bot.command(name='info')
 @tracklist.handle_input(regs=False, filetypes=())
-async def info(ctx, track: TrackData):
+async def get_info(ctx, track: TrackData):
     """ \\info <track name> - Get general track information """
     sdata = track.sheetdata
 
@@ -108,7 +108,7 @@ async def info(ctx, track: TrackData):
 
 @bot.command(name='video')
 @tracklist.handle_input(regs=False, filetypes=())
-async def vid(ctx, track: TrackData):
+async def get_video(ctx, track: TrackData):
     """ \\video <track name> - Get video of track\'s ultra shortcut """
     sdata = track.sheetdata
     await ctx.send(content=f'**{track.name}**')
@@ -148,7 +148,7 @@ async def get_bkt(ctx, track: TrackData, *args):
 
 @bot.command(name='szs')
 @tracklist.handle_input(regs=False, filetypes=())
-async def szs(ctx, track: TrackData):
+async def get_szs(ctx, track: TrackData):
     """ \\szs <track name> - Download track\'s szs file """
     title = f'**{track}**'
     if track.is_cleaned():
@@ -181,7 +181,7 @@ async def get_kmp(ctx, track: TrackData):
 
 @bot.command(name='img')
 @tracklist.handle_input(regs=True, filetypes=())
-async def cpmap(ctx, track: TrackData):
+async def get_cpmap(ctx, track: TrackData):
     """ \\img <track name> - Get image of track\'s checkpoint map """
     files = fnmatch.filter(os.listdir(track.path), '*.png')
     if len(files) != 1:
@@ -191,7 +191,7 @@ async def cpmap(ctx, track: TrackData):
 
 @bot.command(name='cpinfo')
 @tracklist.handle_input(regs=True, filetypes=('szs', 'kmp'))
-async def cpinfo(ctx, track: TrackData):
+async def get_cpinfo(ctx, track: TrackData):
     """ \\cpinfo <track name> - Get stats for track\'s checkpoint map """
     cpdata = track.cpdata
     if cpdata is None:    # not on spreadsheet
@@ -221,7 +221,7 @@ async def cpinfo(ctx, track: TrackData):
 
 @bot.command(name='gcps')
 @tracklist.handle_input(regs=True, filetypes=('szs', 'kmp'), extra_args=('sp', 'split-paths', 'nf', 'no-fill'))
-async def gcps(ctx, track: TrackData, *args):
+async def get_gcps(ctx, track: TrackData, *args):
     """ \\gcps [option] <track name> - Generates Desmos graph of the full track. """
     splitpaths = 'sp' in args or 'split-paths' in args
     noquads = 'nf' in args or 'no-fill' in args
@@ -260,7 +260,7 @@ async def random_track(ctx, arg=''):
     """ \\random [all] - Get random unbroken track, include 'all' to get any track """
     track = tracklist[int(218*random.random() + 2)]
     if arg.lower() == 'all' or track.not_yet_broken():
-        await info(ctx, track)
+        await get_info(ctx, track)
     else:
         await random_track(ctx)
 
