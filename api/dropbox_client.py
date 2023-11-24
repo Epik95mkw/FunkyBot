@@ -12,13 +12,3 @@ class Dropbox(dropbox.Dropbox):
                 self.download_folder_to(f'{dstpath}/{entry.name}', f'{dbxpath}/{entry.name}')
             else:
                 self.files_download_to_file(f'{dstpath}/{entry.name}', f'{dbxpath}/{entry.name}')
-
-
-def test():
-    dbx = Dropbox(DROPBOX_TOKEN)
-    print(dbx.users_get_current_account().name)
-    dbx.download_folder_to('C:/Users/epik9/Desktop/dropbox', '/CTGP Custom Tracks')
-
-
-if __name__ == '__main__':
-    test()
