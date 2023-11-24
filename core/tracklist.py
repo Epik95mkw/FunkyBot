@@ -130,7 +130,6 @@ class TrackData:
         self.path = paths.TEMP
 
 
-# TODO: Should store fully initialized TrackData objects, not just names
 class TrackList:
 
     def __init__(self, sheet: list, regs: Map):
