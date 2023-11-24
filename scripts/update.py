@@ -14,6 +14,7 @@ SHEET_RANGE = ('A2:G219', 'A2:P219', None)
 PATH = paths.CTGP
 ALIAS = {
     'N.I.S.W.O.E. Desert': 'NISWOE Desert',
+    'Shy Guy Lumber Co.': 'Shy Guy Lumber Co'
 }
 
 
@@ -125,7 +126,7 @@ def ctgp_update(sheet: Spreadsheet, archive_info=True):
         fullname = ''
         wid = ''
         slotid = str(t['_links']['item']['href'])[13:15]
-        slot = f'{slotid} ({gamedata.regs.get_all(slotid)["alias"]})'
+        slot = f'{slotid} ({gamedata.regs.get(slotid)["alias"]})'
 
         if archive_info:
             fullname, wid = get_archive_info(t['trackId'])
@@ -198,5 +199,5 @@ def openurl(url: str, encoding: str) -> requests.Response:
 
 if __name__ == '__main__':
     load_dotenv()
-    s = Spreadsheet(os.getenv('SHEETS_KEY'), '../token.json')
+    s = Spreadsheet(os.getenv('SHEET_ID'), '../token.json')
     ctgp_update(s)
