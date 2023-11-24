@@ -220,11 +220,12 @@ async def get_cpinfo(ctx, track: TrackData):
 
 
 @bot.command(name='gcps')
-@tracklist.handle_input(regs=True, filetypes=('szs', 'kmp'), extra_args=('sp', 'split-paths', 'nf', 'no-fill'))
+@tracklist.handle_input(regs=True, filetypes=('szs', 'kmp'), extra_args=('sp', 'split-paths', 'nf', 'no-fill', 'dev'))
 async def get_gcps(ctx, track: TrackData, *args):
     """ \\gcps [option] <track name> - Generates Desmos graph of the full track. """
     splitpaths = 'sp' in args or 'split-paths' in args
     noquads = 'nf' in args or 'no-fill' in args
+    dev = 'dev' in args
 
     if track.kmp_file() is None:
         szsreader.extract_file_to(track.szs_file(), track.path + 'course.kmp', 'course.kmp')
@@ -236,7 +237,7 @@ async def get_gcps(ctx, track: TrackData, *args):
             rawkmp = kmpreader.parse(f)
 
         gcplist = gcpfinder.find(rawkmp, bounds=(-500000, 500000))
-        html = gcpfinder.graph(rawkmp, gcplist, splitpaths, (not noquads), bounds=(-500000, 500000))
+        html = gcpfinder.graph(rawkmp, gcplist, splitpaths, (not noquads), dev, bounds=(-500000, 500000))
 
         append = f'{html}\n<!--{", ".join([str(g) for g in gcplist])}-->'
         with open(f'{path}{track.name}.desmos.html', 'w') as out:

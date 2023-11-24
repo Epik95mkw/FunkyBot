@@ -7,24 +7,8 @@ GREEN = '#388c46'
 PURPLE = '#6042a6'
 ORANGE = '#fa7e19'
 
-TEMPLATE = \
-    '''
-    <!DOCTYPE html>
-    <script src="https://www.desmos.com/api/v1.7/calculator.js?apiKey=dcb31709b452b1cf9dc26972add0fda6"></script>
-    <div id="calculator" style="width: 100%; height: 50vw;"></div>
-    <script>
-        var elt = document.getElementById('calculator');
-        var calculator = Desmos.GraphingCalculator(elt, 
-            { expressions: false, showGrid: false, showXAxis: false, showYAxis: false });
-        calculator.setMathBounds({ left: -200000, right: 200000, bottom: -100000, top: 100000 });
-        calculator.setExpressions(Array(
-            <!-- insert here -->
-        ));
-      </script>
-    '''
 
-
-def graph(kmp, gcplist: list, splitpaths=False, fillquads=True, bounds=(None, None)):
+def graph(kmp, gcplist: list, splitpaths=False, fillquads=True, dev=False, bounds=(None, None)):
     if gcplist is None:
         gcplist = ['']
     ckpt = kmp['CKPT']['entries']
@@ -116,16 +100,17 @@ def graph(kmp, gcplist: list, splitpaths=False, fillquads=True, bounds=(None, No
                 to_script(f'B_{{{i}t{nexti}}} > 0 \\\\left\\\\{{R_{{{nexti}t{i}}} > 0'
                           f'\\\\right\\\\}} \\\\left\\\\{{F_{{{i}t{nexti}}} > 0\\\\right\\\\}}', color)
 
-            # Split path GCPs (end of split path)
-            if splitpaths and len(nexts) > 1 and ckpt[i]['type'] == 255:
-                to_script(f'B_{{{i}t{nexti}}} > 0 \\\\left\\\\{{B_{{{nexti}t{nexti + 1}}} > 0\\\\right\\\\}} '
+            # Split path GCPs (beginning of split path)
+            if splitpaths and len(nexts) > 1:  # and ckpt[i]['type'] == 255:
+                to_script(f'B_{{{nexti}t{nexti + 1}}} > 0 ' +
+                          ''.join(f'\\\\left\\\\{{B_{{{i}t{other}}} > 0\\\\right\\\\}}' for other in nexts if other != nexti) +
                           f'\\\\left\\\\{{{vneg[i]} > 0\\\\right\\\\}}', ORANGE)
 
         for previ in prevs:
             to_script(f'R_{{{i}t{previ}}}=\\\\frac{{{vneg[i]}}}{{{vneg[i]} - '
                       f'({s0[previ]}(x-{a_[previ]})+{s1[previ]}(y-{b_[previ]}))}}')
 
-            # Split path GCPs (beginning of split path)
+            # Split path GCPs (end of split path)
             if splitpaths and len(prevs) > 1 and ckpt[i]['type'] == 255:
                 to_script(f'B_{{{previ}t{i}}} > 0 \\\\left\\\\{{B_{{{i}t{i + 1}}} > 0\\\\right\\\\}} '
                           f'\\\\left\\\\{{{vneg[i]} < 0\\\\right\\\\}}', ORANGE)
@@ -140,11 +125,22 @@ def graph(kmp, gcplist: list, splitpaths=False, fillquads=True, bounds=(None, No
                               f'\\\\left\\\\{{{bounds[0]}<y<{bounds[1]}\\\\right\\\\}}'
                 to_script(gcp_area, RED)
 
-    text = TEMPLATE
-    index = text.index('<!-- insert here -->')
-    text1 = text[0:index]
-    text2 = text[index + 20:]
-    return text1 + ',\n'.join(script) + text2
+    expressions = ',\n'.join(script)
+
+    return f'''
+        <!DOCTYPE html>
+        <script src="https://www.desmos.com/api/v1.7/calculator.js?apiKey=dcb31709b452b1cf9dc26972add0fda6"></script>
+        <div id="calculator" style="width: 100%; height: 50vw;"></div>
+        <script>
+            var elt = document.getElementById('calculator');
+            var calculator = Desmos.GraphingCalculator(elt, 
+                {{ expressions: {"true" if dev else "false"}, showGrid: false, showXAxis: false, showYAxis: false }});
+            calculator.setMathBounds({{ left: -200000, right: 200000, bottom: -100000, top: 100000 }});
+            calculator.setExpressions(Array(
+                {expressions}
+            ));
+          </script>
+        '''
 
 
 # noinspection PyDeprecation
