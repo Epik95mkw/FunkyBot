@@ -240,6 +240,7 @@ async def get_gcps(ctx, track: TrackData, *args):
         html = gcpfinder.graph(rawkmp, gcplist, splitpaths, (not noquads), dev, bounds=(-500000, 500000))
 
         append = f'{html}\n<!--{", ".join([str(g) for g in gcplist])}-->'
+        paths.clear_temp()
         with open(f'{path}{track.name}.desmos.html', 'w') as out:
             out.write(append)
     else:
