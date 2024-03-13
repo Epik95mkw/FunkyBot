@@ -1,3 +1,4 @@
+import sys
 import numpy
 from scipy.optimize import linprog
 
@@ -111,7 +112,7 @@ def graph(kmp, gcplist: list, splitpaths=False, fillquads=True, dev=False, bound
                       f'({s0[previ]}(x-{a_[previ]})+{s1[previ]}(y-{b_[previ]}))}}')
 
             # Split path GCPs (end of split path)
-            if splitpaths and len(prevs) > 1 and ckpt[i]['type'] == 255:
+            if splitpaths and len(prevs) > 1:  # and ckpt[i]['type'] == 255:
                 to_script(f'B_{{{previ}t{i}}} > 0 \\\\left\\\\{{B_{{{i}t{i + 1}}} > 0\\\\right\\\\}} '
                           f'\\\\left\\\\{{{vneg[i]} < 0\\\\right\\\\}}', ORANGE)
 
@@ -166,8 +167,8 @@ def find(kmp, bounds=(None, None), verbose=False):
         b_.append(ckpt[i]["p1"][1] * -1)
         c_.append(ckpt[i]["p2"][0])
         d_.append(ckpt[i]["p2"][1] * -1)
-        s1.append((a_[i] - c_[i]) / ((a_[i] - c_[i]) ** 2 + (d_[i] - b_[i]) ** 2) ** 0.5)
-        s0.append((d_[i] - b_[i]) / ((a_[i] - c_[i]) ** 2 + (d_[i] - b_[i]) ** 2) ** 0.5)
+        s1.append((a_[i] - c_[i]) / (((a_[i] - c_[i]) ** 2 + (d_[i] - b_[i]) ** 2) ** 0.5 or sys.float_info.min))
+        s0.append((d_[i] - b_[i]) / (((a_[i] - c_[i]) ** 2 + (d_[i] - b_[i]) ** 2) ** 0.5 or sys.float_info.min))
         cpline.append([s0[i], s1[i], (s0[i] * -c_[i]) + (s1[i] * -d_[i])])
 
         if ckpt[i]['prev'] == 255:
@@ -217,11 +218,11 @@ def find(kmp, bounds=(None, None), verbose=False):
             for k in range(len(prevs[i])):
                 target = numpy.array([0, 0])
                 mat1 = numpy.array([
-                    [fbdr1[j][0],   fbdr1[j][1]],
+                    [fbdr1[j][0], fbdr1[j][1]],
                     [rbdr1[k][0], rbdr1[k][1]],
-                    [fbdr2[j][0],   fbdr2[j][1]],
+                    [fbdr2[j][0], fbdr2[j][1]],
                     [rbdr2[k][0], rbdr2[k][1]],
-                    [-cpline[i][0],     -cpline[i][1]],
+                    [-cpline[i][0], -cpline[i][1]],
                     [vfor[j][0],  vfor[j][1]],
                     [vback[k][0], vback[k][1]]
                 ])
