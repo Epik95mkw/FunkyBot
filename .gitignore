@@ -5,6 +5,7 @@ venv/
 
 token.json
 core/extra.py
+utils/checkpoint_sim.py
 
 Dockerfile
 .dockerignore
