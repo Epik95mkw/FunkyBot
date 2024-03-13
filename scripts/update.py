@@ -14,7 +14,8 @@ SHEET_RANGE = ('A2:G219', 'A2:P219', None)
 PATH = paths.CTGP
 ALIAS = {
     'N.I.S.W.O.E. Desert': 'NISWOE Desert',
-    'Shy Guy Lumber Co.': 'Shy Guy Lumber Co'
+    'Shy Guy Lumber Co.': 'Shy Guy Lumber Co',
+    'τ-Cryovolcano': 'T-Cryovolcano'
 }
 
 
