@@ -4,7 +4,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 MAIN = os.getenv('CT_PATH')
-REMOTE = os.getenv('REMOTE')
 DROPBOX_TOKEN = os.getenv('DROPBOX_TOKEN')
 
 CTGP = MAIN + 'CTGP Tracks/'
