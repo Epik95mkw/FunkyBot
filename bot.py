@@ -75,7 +75,7 @@ async def links(ctx):
     await ctx.send(embed=embed)
 
 
-@bot.command(name='spreadsheet')
+@bot.command(name='spreadsheet', aliases=['sheet', 'sheetlink'])
 async def get_sheetlink(ctx):
     """ \\spreadsheet - Get link to CTGP ultras spreadsheet """
     await ctx.send(spreadsheet.public_url)
