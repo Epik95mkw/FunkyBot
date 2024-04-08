@@ -7,7 +7,8 @@ import discord
 from discord.ext.commands import Bot, Command
 from dotenv import load_dotenv
 
-from api import spreadsheet, gamedata, chadsoft
+from api import gamedata, chadsoft
+from api.spreadsheet import SheetClient
 from utils import szsreader, kmpreader, gcpfinder
 from core import paths, cpinfo
 from core.tracklist import TrackList, TrackData
@@ -16,9 +17,10 @@ load_dotenv()
 DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
 SHEET_ID = os.getenv('SHEET_ID')
 
+spreadsheet = SheetClient(SHEET_ID)
 client = spreadsheet.authorize('./token.json')
 tracklist = TrackList(
-    sheet=spreadsheet.get_all_formatted(client, SHEET_ID),
+    sheet=spreadsheet.get_all_formatted(),
     regs=gamedata.regs
 )
 
@@ -56,7 +58,7 @@ async def cmd_help(ctx):
 async def links(ctx):
     """ \\links - Get important CT resources """
     desc = 'CTGP Ultras Spreadsheet:\n' \
-        f'{spreadsheet.public_url(SHEET_ID)}\n\n' \
+        f'{spreadsheet.public_url}\n\n' \
         'CTGP Tockdom Page:\n' \
         'http://wiki.tockdom.com/wiki/CTGPR\n\n' \
         'CTGP Track Files Dropbox:\n' \
@@ -76,7 +78,7 @@ async def links(ctx):
 @bot.command(name='spreadsheet')
 async def get_sheetlink(ctx):
     """ \\spreadsheet - Get link to CTGP ultras spreadsheet """
-    await ctx.send(spreadsheet.public_url(SHEET_ID))
+    await ctx.send(spreadsheet.public_url)
 
 
 @bot.command(name='info')
