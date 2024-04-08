@@ -1,3 +1,5 @@
+from typing import Optional
+
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
@@ -33,17 +35,21 @@ class SheetClient:
         self.client = gspread.authorize(creds)
 
 
-    def get_all(self):
-        res = self.client.request('get', f'{BASE_URL}/{self.sheet_id}?fields={REQ_FIELDS}')
-        if not res.ok:
+    def get_all(self) -> Optional[dict]:
+        try:
+            res = self.client.request('get', f'{BASE_URL}/{self.sheet_id}?fields={REQ_FIELDS}')
+        except gspread.exceptions.APIError as err:
+            res = err.response
             print(f'Failed to fetch google sheets data (response code {res.status_code}: {res.reason})')
-            return False
+            return None
         return res.json()
 
 
-    def get_all_formatted(self):
+    def get_all_formatted(self) -> Optional[list]:
         out = []
         data = self.get_all()
+        if data is None:
+            return None
 
         for sheet in data['sheets']:
             rowlist = []
@@ -64,7 +70,7 @@ class SheetClient:
 
 
     @property
-    def public_url(self):
+    def public_url(self) -> str:
         return f'https://docs.google.com/spreadsheets/d/{self.sheet_id}'
 
 
@@ -92,3 +98,9 @@ class SheetClient:
             })
 
         self.client.request('post', f'{BASE_URL}/{self.sheet_id}:batchUpdate', json=body)
+
+        try:
+            self.client.request('post', f'{BASE_URL}/{self.sheet_id}:batchUpdate', json=body)
+        except gspread.exceptions.APIError as err:
+            res = err.response
+            print(f'Batch cut/paste operation failed (response code {res.status_code}: {res.reason})')
