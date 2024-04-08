@@ -4,7 +4,7 @@ import random
 from datetime import datetime
 
 import discord
-from discord.ext.commands import Bot, Command
+from discord.ext.commands import Bot, Command, CommandNotFound, CheckFailure
 from dotenv import load_dotenv
 
 from api import gamedata, chadsoft
@@ -16,6 +16,7 @@ from core.tracklist import TrackList, TrackData
 load_dotenv()
 DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
 SHEET_ID = os.getenv('SHEET_ID')
+GUILD_ID = os.getenv('GUILD_ID')
 
 spreadsheet = SheetClient(SHEET_ID)
 client = spreadsheet.authorize('./token.json')
@@ -31,13 +32,16 @@ bot = Bot(command_prefix='\\', help_command=None)
 async def on_ready():
     if os.path.isfile('./core/extra.py'):
         bot.load_extension('core.extra')
+    if GUILD_ID is not None:
+        for cmd in bot.commands:
+            cmd.add_check(lambda ctx: str(ctx.guild.id) == GUILD_ID)
     await bot.change_presence(activity=discord.Game('\\help for commands'))
     print(f'Connected: {datetime.now().strftime("%m/%d/%Y %H:%M:%S")}')
 
 
 @bot.event
 async def on_command_error(ctx, error):
-    if not isinstance(error, discord.ext.commands.errors.CommandNotFound):
+    if not isinstance(error, (CommandNotFound, CheckFailure)):
         await ctx.send(error)
         raise error.original if hasattr(error, 'original') else error
 
