@@ -132,7 +132,7 @@ async def get_bkt(ctx, track: TrackData, *args):
     """ \\bkt <track name> [glitch/no-sc] [flap] [200cc] """
     args = [a.lower() for a in args]
     category = 0
-    is_flap = ''
+    is_flap = False
     is_200 = False
 
     # Parse command
