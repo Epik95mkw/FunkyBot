@@ -1,6 +1,7 @@
 from typing import Optional
 
 import gspread
+from attr import dataclass
 from oauth2client.service_account import ServiceAccountCredentials
 
 
@@ -9,17 +10,39 @@ REQ_FIELDS = 'sheets(data(rowData(values(formattedValue,hyperlink))))'
 SCOPES = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
 
 
-class SheetArea:
-    def __init__(self, title: str, data_range: str):
-        self.title = title
-        self.data_range = data_range
+@dataclass(kw_only=True)
+class Cell:
+    page: int
+    row: int
+    col: int
 
-    @property
-    def formatted_name(self):
-        return self.title.replace(' ', '%20')
 
-    def as_param(self):
-        return f'{self.formatted_name}!{self.data_range}'
+class BatchOperation:
+    def __init__(self):
+        self._operations = []
+
+    def json(self) -> dict:
+        return {'requests': self._operations}
+
+
+    def cut_paste(self, src_start: Cell, src_end: Cell, dest: Cell):
+        self._operations.append({
+            "cutPaste": {
+                "source": {
+                    "sheetId": src_start.page,
+                    "startRowIndex": src_start.row - 1,
+                    "endRowIndex": src_end.row - 1,
+                    "startColumnIndex": src_start.col,
+                    "endColumnIndex": src_end.col
+                },
+                "destination": {
+                    "sheetId": dest.page,
+                    "rowIndex": dest.row - 1,
+                    "columnIndex": dest.col
+                },
+                "pasteType": "PASTE_NORMAL",
+            }
+        })
 
 
 class SheetClient:
@@ -29,10 +52,13 @@ class SheetClient:
     def __init__(self, sheet_id: str):
         self.sheet_id = sheet_id
 
-
     def authorize(self, token_path: str):
         creds = ServiceAccountCredentials.from_json_keyfile_name(token_path, SCOPES)
         self.client = gspread.authorize(creds)
+
+    @property
+    def public_url(self) -> str:
+        return f'https://docs.google.com/spreadsheets/d/{self.sheet_id}'
 
 
     def get_all(self) -> Optional[dict]:
@@ -69,38 +95,11 @@ class SheetClient:
         return out
 
 
-    @property
-    def public_url(self) -> str:
-        return f'https://docs.google.com/spreadsheets/d/{self.sheet_id}'
-
-
-    def batch_cut_paste(self, ops):
-        body = {"requests": []}
-        for op in ops:
-            start, size, dest = op
-
-            body["requests"].append({
-                "cutPaste": {
-                    "source": {
-                        "sheetId": start.page.id,
-                        "startRowIndex": start.row - 1,
-                        "endRowIndex": start.row + size[0] - 1,
-                        "startColumnIndex": start.col,
-                        "endColumnIndex": start.col + size[1]
-                    },
-                    "destination": {
-                        "sheetId": dest.page.id,
-                        "rowIndex": dest.row - 1,
-                        "columnIndex": dest.col
-                    },
-                    "pasteType": "PASTE_NORMAL",
-                }
-            })
-
-        self.client.request('post', f'{BASE_URL}/{self.sheet_id}:batchUpdate', json=body)
-
+    def batch_update(self, batch: BatchOperation) -> bool:
         try:
-            self.client.request('post', f'{BASE_URL}/{self.sheet_id}:batchUpdate', json=body)
+            self.client.request('post', f'{BASE_URL}/{self.sheet_id}:batchUpdate', json=batch.json())
+            return True
         except gspread.exceptions.APIError as err:
             res = err.response
-            print(f'Batch cut/paste operation failed (response code {res.status_code}: {res.reason})')
+            print(f'Google Sheets batch update failed (response code {res.status_code}: {res.reason})')
+            return False
