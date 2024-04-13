@@ -17,65 +17,32 @@ class Cell:
     col: int
 
 
-class BatchOperation:
-    def __init__(self):
-        self._operations = []
+class Spreadsheet(gspread.Spreadsheet):
 
-    def json(self) -> dict:
-        return {'requests': self._operations}
-
-
-    def cut_paste(self, src_start: Cell, src_end: Cell, dest: Cell):
-        self._operations.append({
-            "cutPaste": {
-                "source": {
-                    "sheetId": src_start.page,
-                    "startRowIndex": src_start.row - 1,
-                    "endRowIndex": src_end.row - 1,
-                    "startColumnIndex": src_start.col,
-                    "endColumnIndex": src_end.col
-                },
-                "destination": {
-                    "sheetId": dest.page,
-                    "rowIndex": dest.row - 1,
-                    "columnIndex": dest.col
-                },
-                "pasteType": "PASTE_NORMAL",
-            }
-        })
-
-
-class SheetClient:
-    client: gspread.Client = None
-    sheet_id: str = None
-
-    def __init__(self, sheet_id: str):
-        self.sheet_id = sheet_id
-
-    def authorize(self, token_path: str):
+    def __init__(self, key: str, token_path: str):
         creds = ServiceAccountCredentials.from_json_keyfile_name(token_path, SCOPES)
-        self.client = gspread.authorize(creds)
+        client = gspread.authorize(creds)
+        super().__init__(client, {'id': key})
+        self.pages = self.worksheets()
+        self.batch_operations = {'requests': []}
+
+    def __getitem__(self, item):
+        return self.pages[item]
+
+    @property
+    def sheet_id(self) -> str:
+        return self.id
 
     @property
     def public_url(self) -> str:
-        return f'https://docs.google.com/spreadsheets/d/{self.sheet_id}'
+        return self.url
 
-
-    def get_all(self) -> Optional[dict]:
-        try:
-            res = self.client.request('get', f'{BASE_URL}/{self.sheet_id}?fields={REQ_FIELDS}')
-        except gspread.exceptions.APIError as err:
-            res = err.response
-            print(f'Failed to fetch google sheets data (response code {res.status_code}: {res.reason})')
-            return None
-        return res.json()
-
+    def get_all(self) -> dict:
+        return self.fetch_sheet_metadata(params={'fields': REQ_FIELDS})
 
     def get_all_formatted(self) -> Optional[list]:
         out = []
         data = self.get_all()
-        if data is None:
-            return None
 
         for sheet in data['sheets']:
             rowlist = []
@@ -86,7 +53,7 @@ class SheetClient:
                     if i < len(row['values']):
                         valuelist.append({
                             'value': row['values'][i].setdefault('formattedValue', None),
-                            'link':  row['values'][i].setdefault('hyperlink', None)
+                            'link': row['values'][i].setdefault('hyperlink', None)
                         })
                     else:
                         valuelist.append({'value': None, 'link': None})
@@ -94,12 +61,34 @@ class SheetClient:
             out.append(rowlist)
         return out
 
+    def batch_update(self, body):
+        print('batch_update called')
+        self.batch_operations['requests'].extend(body['requests'])
 
-    def batch_update(self, batch: BatchOperation) -> bool:
+    def commit_batch_update(self):
         try:
-            self.client.request('post', f'{BASE_URL}/{self.sheet_id}:batchUpdate', json=batch.json())
+            self.client.request('post', f'{BASE_URL}/{self.sheet_id}:batchUpdate', json=self.batch_operations)
             return True
         except gspread.exceptions.APIError as err:
             res = err.response
             print(f'Google Sheets batch update failed (response code {res.status_code}: {res.reason})')
             return False
+
+    def cut_paste(self, start: Cell, size: tuple[int, int], dest: Cell):
+        self.batch_operations["requests"].append({
+            "cutPaste": {
+                "source": {
+                    "sheetId": start.page,
+                    "startRowIndex": start.row - 1,
+                    "endRowIndex": start.row + size[0] - 1,
+                    "startColumnIndex": start.col,
+                    "endColumnIndex": start.col + size[1]
+                },
+                "destination": {
+                    "sheetId": dest.page,
+                    "rowIndex": dest.row - 1,
+                    "columnIndex": dest.col
+                },
+                "pasteType": "PASTE_NORMAL",
+            }
+        })

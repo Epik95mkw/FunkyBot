@@ -25,6 +25,27 @@ def alias(name):
     return name
 
 
+'''
+NEW CTGP UPDATE FLOW
+
+\ctgp-update start
+    get old sha1s from spreadsheet
+    get new sha1s from chadsoft
+    compare sha1s to extract new tracks and removed tracks
+    if no new tracks:
+        send message "No new tracks found. Update aborted."
+    else:
+        send message (
+            Track slots being updated: {number of changed tracks}
+            Tracks being added: {list new tracks}
+            Tracks being removed: {list removed tracks}
+            
+            
+        )
+
+'''
+
+
 def ctgp_update(sheet: Spreadsheet, archive_info=True):
     #  BEFORE RUNNING:
     #  - Put new track folders into /CTGP Tracks/_UPDATE

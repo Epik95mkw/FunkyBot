@@ -8,7 +8,7 @@ from discord.ext.commands import Bot, Command, CommandNotFound, CheckFailure
 from dotenv import load_dotenv
 
 from api import gamedata, chadsoft
-from api.spreadsheet import SheetClient
+from api.spreadsheet import Spreadsheet
 from utils import szsreader, kmpreader, gcpfinder
 from core import paths, cpinfo
 from core.tracklist import TrackList, TrackData
@@ -18,8 +18,7 @@ DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
 SHEET_ID = os.getenv('SHEET_ID')
 GUILD_ID = os.getenv('GUILD_ID')
 
-spreadsheet = SheetClient(SHEET_ID)
-client = spreadsheet.authorize('./token.json')
+spreadsheet = Spreadsheet(SHEET_ID, './token.json')
 tracklist = TrackList(
     sheet=spreadsheet.get_all_formatted(),
     regs=gamedata.regs
