@@ -29,11 +29,13 @@ bot = Bot(command_prefix='\\', help_command=None)
 
 @bot.event
 async def on_ready():
-    if os.path.isfile('./core/extra.py'):
-        bot.load_extension('core.extra')
     if GUILD_ID is not None:
         for cmd in bot.commands:
             cmd.add_check(lambda ctx: str(ctx.guild.id) == GUILD_ID)
+    if os.path.isdir('./extensions'):
+        for file in os.listdir('./extensions'):
+            if file.endswith('.py'):
+                bot.load_extension(f'extensions.{file[:-3]}')
     await bot.change_presence(activity=discord.Game('\\help for commands'))
     print(f'Connected: {datetime.now().strftime("%m/%d/%Y %H:%M:%S")}')
 

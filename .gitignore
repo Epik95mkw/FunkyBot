@@ -4,7 +4,7 @@ venv/
 .idea/
 
 token.json
-core/extra.py
+extensions/*.py
 utils/checkpoint_sim.py
 
 Dockerfile
