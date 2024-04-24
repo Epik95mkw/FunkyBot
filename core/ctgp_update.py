@@ -45,7 +45,8 @@ class AppCommands(commands.GroupCog, group_name='ctgp-update'):
     async def check_new_tracks(self, interaction, new_track_count: int):
         """ Start bot update process """
         print('CTGP Update initiated')
-        local_sha1s = self.sheet[1].read_col('SHA1')
+        sha1_col = self.sheet[1].row_values(1).index('SHA1') + 1
+        local_sha1s = self.sheet[1].col_values(sha1_col)
         chadsoft_sha1s = []
         removed_tracks = []
         added_tracks = []
@@ -75,7 +76,8 @@ class AppCommands(commands.GroupCog, group_name='ctgp-update'):
         # If SHA1 exists on local but not chadsoft, it's a removed track
         for sha1 in local_sha1s:
             if sha1 not in chadsoft_sha1s:
-                removed_tracks.append(self.sheet[1].get_row_name('SHA1', sha1))
+                track_row = self.sheet[1].col_values(sha1_col).index(sha1) + 1
+                removed_tracks.append(self.sheet[1].row_values(track_row)[0])
 
         # Check if new track count is wrong
         if len(removed_tracks) != new_track_count or len(added_tracks) != new_track_count:
