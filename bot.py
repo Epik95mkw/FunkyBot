@@ -24,7 +24,11 @@ tracklist = TrackList(
     regs=gamedata.regs
 )
 
-bot = Bot(command_prefix='\\', help_command=None)
+bot = Bot(
+    command_prefix='\\',
+    help_command=None,
+    intents=discord.Intents.all()
+)
 
 
 @bot.event
@@ -35,7 +39,7 @@ async def on_ready():
     if os.path.isdir('./extensions'):
         for file in os.listdir('./extensions'):
             if file.endswith('.py'):
-                bot.load_extension(f'extensions.{file[:-3]}')
+                await bot.load_extension(f'extensions.{file[:-3]}')
     await bot.change_presence(activity=discord.Game('\\help for commands'))
     print(f'Connected: {datetime.now().strftime("%m/%d/%Y %H:%M:%S")}')
 
