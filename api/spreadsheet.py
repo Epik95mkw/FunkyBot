@@ -26,7 +26,7 @@ class Spreadsheet(gspread.Spreadsheet):
         self.pages = self.worksheets()
         self.batch_operations = {'requests': []}
 
-    def __getitem__(self, item):
+    def __getitem__(self, item) -> gspread.Worksheet:
         return self.pages[item]
 
     @property
