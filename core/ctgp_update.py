@@ -33,7 +33,7 @@ SHEET_RANGE = ('A2:G219', 'A2:P219', None)
 
 @app_commands.guild_only()
 @app_commands.default_permissions()
-class AppCommands(commands.GroupCog, group_name='ctgp-update'):
+class UpdateCommands(commands.GroupCog, group_name='ctgp-update'):
     def __init__(self, bot: commands.Bot, sheet: Spreadsheet):
         self.bot = bot
         self.sheet = sheet

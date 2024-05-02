@@ -4,11 +4,12 @@ import random
 from datetime import datetime
 
 import discord
-from discord.ext.commands import Bot, Command, CommandNotFound, CheckFailure
+from discord.ext import commands
 from dotenv import load_dotenv
 
 from api import gamedata, chadsoft
 from api.spreadsheet import Spreadsheet
+from core.ctgp_update import UpdateCommands
 from utils import szsreader, kmpreader, gcpfinder
 from core import paths, cpinfo
 from core.tracklist import TrackList, TrackData
@@ -24,7 +25,7 @@ tracklist = TrackList(
     regs=gamedata.regs
 )
 
-bot = Bot(
+bot = commands.Bot(
     command_prefix='\\',
     help_command=None,
     intents=discord.Intents.all()
@@ -40,13 +41,14 @@ async def on_ready():
         for file in os.listdir('./extensions'):
             if file.endswith('.py'):
                 await bot.load_extension(f'extensions.{file[:-3]}')
+    await bot.add_cog(UpdateCommands(bot, spreadsheet))
     await bot.change_presence(activity=discord.Game('\\help for commands'))
     print(f'Connected: {datetime.now().strftime("%m/%d/%Y %H:%M:%S")}')
 
 
 @bot.event
 async def on_command_error(ctx, error):
-    if not isinstance(error, (CommandNotFound, CheckFailure)):
+    if not isinstance(error, (commands.CommandNotFound, commands.CheckFailure)):
         await ctx.send(error)
         raise error.original if hasattr(error, 'original') else error
 
@@ -56,7 +58,7 @@ async def on_command_error(ctx, error):
 
 @bot.command(name='help')
 async def cmd_help(ctx):
-    cmdlist = '\n'.join(v.help for v in globals().values() if isinstance(v, Command) and v.help)
+    cmdlist = '\n'.join(v.help for v in globals().values() if isinstance(v, commands.Command) and v.help)
     footer = '<track name> accepts any custom track in CTGP. Track names are case insensitive and ' \
              'can be replaced with abbreviations ("dcr", "snes mc2", etc.).'
     embed = discord.Embed(title="Commands:", description=cmdlist[:3000] + '\n\n' + footer, color=0xCA00FF)
@@ -276,6 +278,15 @@ async def random_track(ctx, arg=''):
         await get_info(ctx, track)
     else:
         await random_track(ctx)
+
+
+@bot.command(name='sync')
+@commands.is_owner()
+async def sync_app_commands(ctx):
+    """ Only bot owner can use. Syncs application commands. """
+    msg = await ctx.send('Syncing...')
+    synced = await bot.tree.sync()
+    await msg.edit(content=f'Synced {len(synced)} app commands.')
 
 
 if __name__ == '__main__':
