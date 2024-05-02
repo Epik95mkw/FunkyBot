@@ -279,5 +279,4 @@ async def random_track(ctx, arg=''):
 
 
 if __name__ == '__main__':
-    print(f'Process started: {datetime.now().strftime("%m/%d/%Y %H:%M:%S")}')
     bot.run(DISCORD_TOKEN)
