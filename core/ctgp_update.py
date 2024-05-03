@@ -34,6 +34,7 @@ SHEET_RANGE = ('A2:G219', 'A2:P219', None)
 @app_commands.guild_only()
 @app_commands.default_permissions()
 class UpdateCommands(commands.GroupCog, group_name='ctgp-update'):
+
     def __init__(self, bot: commands.Bot, sheet: Spreadsheet):
         self.bot = bot
         self.sheet = sheet
@@ -41,19 +42,21 @@ class UpdateCommands(commands.GroupCog, group_name='ctgp-update'):
         self.tracks_to_add = []
         self.tracks_to_remove = []
 
-    @slash_command(name='start')
+
+    @slash_command(name='check')
     async def check_new_tracks(self, interaction, new_track_count: int):
-        """ Start bot update process """
+        """ #1. Check Chadsoft for new tracks """
         await interaction.response.defer()
+
+        async def respond(msg):
+            await interaction.followup.send(msg, ephemeral=True)
+
         print('CTGP Update initiated')
         sha1_col = self.sheet[1].row_values(1).index('SHA1') + 1
         sheet_sha1s = self.sheet[1].col_values(sha1_col)[1:]
         chadsoft_sha1s = []
         removed_tracks = []
         added_tracks = []
-
-        async def respond(msg):
-            await interaction.followup.send(msg, ephemeral=True)
 
         print('Fetching information from Chadsoft...')
         lbs = chadsoft.all_leaderboards()
@@ -110,3 +113,36 @@ class UpdateCommands(commands.GroupCog, group_name='ctgp-update'):
             f'If this is correct, use `/ctgp-update continue` to continue.\n'
             f'If this is not correct, use `/ctgp-update cancel` to cancel.'
         )
+
+
+    @slash_command(name='prepare')
+    async def dropbox_setup(self, interaction):
+        """ #2. Create dropbox folders for new track files to be uploaded """
+        await interaction.response.defer()
+
+        async def respond(msg):
+            await interaction.followup.send(msg, ephemeral=True)
+
+        await respond('Not implemented')
+
+
+    @slash_command(name='execute')
+    async def execute_update(self, interaction):
+        """ #3. Use dropbox folders to update spreadsheet and local track storage """
+        await interaction.response.defer()
+
+        async def respond(msg):
+            await interaction.followup.send(msg, ephemeral=True)
+
+        await respond('Not implemented')
+
+
+    @slash_command(name='cancel')
+    async def cancel_update(self, interaction):
+        """ Cancel update and reset all update commands """
+        await interaction.response.defer()
+
+        async def respond(msg):
+            await interaction.followup.send(msg, ephemeral=True)
+
+        await respond('Not implemented')
