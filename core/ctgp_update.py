@@ -1,3 +1,4 @@
+import discord
 from discord import app_commands
 from discord.ext import commands
 from discord.app_commands import command as slash_command
@@ -27,7 +28,6 @@ NEW CTGP UPDATE FLOW
 
 '''
 
-CT_COUNT = 218
 SHEET_RANGE = ('A2:G219', 'A2:P219', None)
 
 
@@ -44,53 +44,63 @@ class UpdateCommands(commands.GroupCog, group_name='ctgp-update'):
     @slash_command(name='start')
     async def check_new_tracks(self, interaction, new_track_count: int):
         """ Start bot update process """
+        await interaction.response.defer()
         print('CTGP Update initiated')
         sha1_col = self.sheet[1].row_values(1).index('SHA1') + 1
-        local_sha1s = self.sheet[1].col_values(sha1_col)
+        sheet_sha1s = self.sheet[1].col_values(sha1_col)[1:]
         chadsoft_sha1s = []
         removed_tracks = []
         added_tracks = []
 
         async def respond(msg):
-            await interaction.response.send_message(msg, ephemeral=True)
+            await interaction.followup.send(msg, ephemeral=True)
 
         print('Fetching information from Chadsoft...')
         lbs = chadsoft.all_leaderboards()
         last = ''
 
-        # If SHA1 exists on chadsoft but not local, it's a new track
+        # If SHA1 exists on chadsoft but not sheet, it's a new track
         for t in lbs['leaderboards']:
             sha1 = t['trackId']
             if last == sha1:
                 continue
             chadsoft_sha1s.append(sha1)
-            if sha1 not in local_sha1s:
+            if sha1 not in sheet_sha1s:
                 added_tracks.append(t)
             last = sha1
 
         # Check if total track count is wrong
-        if len(local_sha1s) != CT_COUNT or len(chadsoft_sha1s) != CT_COUNT:
-            await respond(
-                f'Error: Unexpected number of total tracks\n{CT_COUNT=}\n{len(local_sha1s)=}\n{len(chadsoft_sha1s)=}')
+        if len(sheet_sha1s) != len(chadsoft_sha1s):
+            print('Error: Unexpected number of total tracks.')
+            return await respond(
+                f'Error: Unexpected number of total tracks.\n'
+                f'{len(sheet_sha1s)} SHA1s found on spreadsheet\n'
+                f'{len(chadsoft_sha1s)} tracks found on Chadsoft'
+            )
 
-        # If SHA1 exists on local but not chadsoft, it's a removed track
-        for sha1 in local_sha1s:
+        # If SHA1 exists on sheet but not chadsoft, it's a removed track
+        for sha1 in sheet_sha1s:
             if sha1 not in chadsoft_sha1s:
                 track_row = self.sheet[1].col_values(sha1_col).index(sha1) + 1
                 removed_tracks.append(self.sheet[1].row_values(track_row)[0])
 
         # Check if new track count is wrong
         if len(removed_tracks) != new_track_count or len(added_tracks) != new_track_count:
-            await respond(
-                f'Unexpected number of new tracks\n{new_track_count=}\n{len(removed_tracks)=}\n{len(added_tracks)=}')
+            print('Error: Unexpected number of new tracks.')
+            return await respond(
+                f'Error: Unexpected number of new tracks.\n'
+                f'Expected: {new_track_count}\n'
+                f'Found: {len(added_tracks)} added, {len(removed_tracks)} removed'
+            )
 
         # Set state
         self.tracks_to_add = added_tracks
         self.tracks_to_remove = removed_tracks
         self.stage = 1
+        print('Response sent. Update stage set to 1.')
 
         # Format response
-        lines = ['%-30s%-30s' % ('\nAdded tracks:', ' Removed tracks:')]
+        lines = ['%-30s%-30s' % ('\nAdded tracks:', ' Removed tracks:'), '']
         for i in range(new_track_count):
             lines.append('%-30s%-30s' % (added_tracks[i]['name'], removed_tracks[i]))
         out = '\n'.join(lines)
