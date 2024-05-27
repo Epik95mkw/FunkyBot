@@ -41,7 +41,7 @@ async def on_ready():
         for file in os.listdir('./extensions'):
             if file.endswith('.py'):
                 await bot.load_extension(f'extensions.{file[:-3]}')
-    await bot.add_cog(UpdateCommands(bot, spreadsheet))
+    await bot.add_cog(UpdateCommands(bot, spreadsheet), guilds=bot.guilds)
     await bot.change_presence(activity=discord.Game('\\help for commands'))
     print(f'Connected: {datetime.now().strftime("%m/%d/%Y %H:%M:%S")}')
 
@@ -285,7 +285,7 @@ async def random_track(ctx, arg=''):
 async def sync_app_commands(ctx):
     """ Only bot owner can use. Syncs application commands. """
     msg = await ctx.send('Syncing...')
-    synced = await bot.tree.sync()
+    synced = await bot.tree.sync(guild=ctx.guild)
     await msg.edit(content=f'Synced {len(synced)} app commands.')
 
 
