@@ -1,3 +1,5 @@
+import itertools
+
 import discord
 from discord import app_commands
 from discord.ext import commands
@@ -44,7 +46,7 @@ class UpdateCommands(commands.GroupCog, group_name='ctgp-update'):
 
 
     @slash_command(name='check')
-    async def check_new_tracks(self, interaction, new_track_count: int):
+    async def check_new_tracks(self, interaction):
         """ #1. Check Chadsoft for new tracks """
         await interaction.response.defer()
 
@@ -72,29 +74,11 @@ class UpdateCommands(commands.GroupCog, group_name='ctgp-update'):
                 added_tracks.append(t)
             last = sha1
 
-        # Check if total track count is wrong
-        if len(sheet_sha1s) != len(chadsoft_sha1s):
-            print('Error: Unexpected number of total tracks.')
-            return await respond(
-                f'Error: Unexpected number of total tracks.\n'
-                f'{len(sheet_sha1s)} SHA1s found on spreadsheet\n'
-                f'{len(chadsoft_sha1s)} tracks found on Chadsoft'
-            )
-
         # If SHA1 exists on sheet but not chadsoft, it's a removed track
         for sha1 in sheet_sha1s:
             if sha1 not in chadsoft_sha1s:
                 track_row = self.sheet[1].col_values(sha1_col).index(sha1) + 1
                 removed_tracks.append(self.sheet[1].row_values(track_row)[0])
-
-        # Check if new track count is wrong
-        if len(removed_tracks) != new_track_count or len(added_tracks) != new_track_count:
-            print('Error: Unexpected number of new tracks.')
-            return await respond(
-                f'Error: Unexpected number of new tracks.\n'
-                f'Expected: {new_track_count}\n'
-                f'Found: {len(added_tracks)} added, {len(removed_tracks)} removed'
-            )
 
         # Set state
         self.tracks_to_add = added_tracks
@@ -103,12 +87,14 @@ class UpdateCommands(commands.GroupCog, group_name='ctgp-update'):
         print('Response sent. Update stage set to 1.')
 
         # Format response
-        lines = ['%-30s%-30s' % ('\nAdded tracks:', ' Removed tracks:'), '']
-        for i in range(new_track_count):
-            lines.append('%-30s%-30s' % (added_tracks[i]['name'], removed_tracks[i]))
+        lines = ['%-30s%-30s' % (
+            f'Added tracks ({len(added_tracks)}):',
+            f'Removed tracks ({len(removed_tracks)}):'
+        ), '']
+        for added, removed in itertools.zip_longest(added_tracks, removed_tracks, fillvalue=''):
+            lines.append('%-30s%-30s' % (added['name'], removed))
         out = '\n'.join(lines)
         await respond(
-            f'Track slots being updated: {new_track_count}\n'
             f'```{out}```\n'
             f'If this is correct, use `/ctgp-update continue` to continue.\n'
             f'If this is not correct, use `/ctgp-update cancel` to cancel.'
