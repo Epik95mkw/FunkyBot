@@ -40,9 +40,19 @@ class UpdateCommands(commands.GroupCog, group_name='ctgp-update'):
     def __init__(self, bot: commands.Bot, sheet: Spreadsheet):
         self.bot = bot
         self.sheet = sheet
-        self.stage = 0
         self.tracks_to_add = []
         self.tracks_to_remove = []
+        self._stage = 0
+
+    @property
+    def stage(self):
+        return self._stage
+
+    @stage.setter
+    def stage(self, n):
+        self._stage = n
+        print(f'Stage set to {n}.')
+
 
 
     @slash_command(name='check')
@@ -84,7 +94,7 @@ class UpdateCommands(commands.GroupCog, group_name='ctgp-update'):
         self.tracks_to_add = added_tracks
         self.tracks_to_remove = removed_tracks
         self.stage = 1
-        print('Response sent. Update stage set to 1.')
+        print('Response sent.')
 
         # Format response
         lines = ['%-30s%-30s' % (
@@ -126,9 +136,5 @@ class UpdateCommands(commands.GroupCog, group_name='ctgp-update'):
     @slash_command(name='cancel')
     async def cancel_update(self, interaction):
         """ Cancel update and reset all update commands """
-        await interaction.response.defer()
-
-        async def respond(msg):
-            await interaction.followup.send(msg, ephemeral=True)
-
-        await respond('Not implemented')
+        self.stage = 0
+        await interaction.response.send_message('Update cancelled.', ephemeral=True)
