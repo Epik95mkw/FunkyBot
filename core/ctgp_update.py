@@ -1,5 +1,6 @@
 import itertools
-
+import zipfile
+from io import BytesIO
 import discord
 from discord import app_commands
 from discord.ext import commands
@@ -8,27 +9,6 @@ from discord.app_commands import command as slash_command
 from api.spreadsheet import Spreadsheet
 import api.chadsoft as chadsoft
 
-'''
-NEW CTGP UPDATE FLOW
-
-/ctgp-update start
-    get old sha1s from spreadsheet
-    get new sha1s from chadsoft
-    compare sha1s to extract new tracks and removed tracks
-    if no new tracks:
-        send message "No new tracks found. Update aborted."
-    else:
-        update UPDATE_STATE
-        send message (
-           "Track slots being updated: {number of changed tracks}
-            Tracks being added: {list new tracks}
-            Tracks being removed: {list removed tracks}
-
-            If this is correct, use `/ctgp-update continue` to continue.
-            If this is not correct, use `/ctgp-update cancel` to cancel."
-        )
-
-'''
 
 SHEET_RANGE = ('A2:G219', 'A2:P219', None)
 
@@ -59,9 +39,6 @@ class UpdateCommands(commands.GroupCog, group_name='ctgp-update'):
     async def check_new_tracks(self, interaction):
         """ #1. Check Chadsoft for new tracks """
         await interaction.response.defer()
-
-        async def respond(msg):
-            await interaction.followup.send(msg, ephemeral=True)
 
         print('CTGP Update initiated')
         sha1_col = self.sheet[1].row_values(1).index('SHA1') + 1
@@ -104,7 +81,7 @@ class UpdateCommands(commands.GroupCog, group_name='ctgp-update'):
         for added, removed in itertools.zip_longest(added_tracks, removed_tracks, fillvalue=''):
             lines.append('%-30s%-30s' % (added['name'], removed))
         out = '\n'.join(lines)
-        await respond(
+        await interaction.followup.send(
             f'```{out}```\n'
             f'If this is correct, use `/ctgp-update continue` to continue.\n'
             f'If this is not correct, use `/ctgp-update cancel` to cancel.'
@@ -112,19 +89,20 @@ class UpdateCommands(commands.GroupCog, group_name='ctgp-update'):
 
 
     @slash_command(name='prepare')
-    async def dropbox_setup(self, interaction):
-        """ #2. Create dropbox folders for new track files to be uploaded """
+    async def zipfile_setup(self, interaction):
+        """ #2. Create template zipfile with new track folders """
         await interaction.response.defer()
 
-        async def respond(msg):
-            await interaction.followup.send(msg, ephemeral=True)
+        with BytesIO() as buffer:
+            with zipfile.ZipFile(buffer, 'w') as zf:
+                zf.writestr('test', 'test')
 
-        await respond('Not implemented')
+            await interaction.followup.send('Zipfile', file=discord.File(buffer, filename='name.zip'))
 
 
     @slash_command(name='execute')
     async def execute_update(self, interaction):
-        """ #3. Use dropbox folders to update spreadsheet and local track storage """
+        """ #3. Use zipfile to update spreadsheet and local track storage """
         await interaction.response.defer()
 
         async def respond(msg):
@@ -137,4 +115,4 @@ class UpdateCommands(commands.GroupCog, group_name='ctgp-update'):
     async def cancel_update(self, interaction):
         """ Cancel update and reset all update commands """
         self.stage = 0
-        await interaction.response.send_message('Update cancelled.', ephemeral=True)
+        await interaction.response.send_message('Update canceled.', ephemeral=True)

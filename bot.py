@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 
 from api import gamedata, chadsoft
 from api.spreadsheet import Spreadsheet
-from core.ctgp_update import UpdateCommands
+# from core.ctgp_update import UpdateCommands
 from utils import szsreader, kmpreader, gcpfinder
 from core import paths, cpinfo
 from core.tracklist import TrackList, TrackData
@@ -41,7 +41,7 @@ async def on_ready():
         for file in os.listdir('./extensions'):
             if file.endswith('.py'):
                 await bot.load_extension(f'extensions.{file[:-3]}')
-    await bot.add_cog(UpdateCommands(bot, spreadsheet), guilds=bot.guilds)
+    # await bot.add_cog(UpdateCommands(bot, spreadsheet), guilds=bot.guilds)
     await bot.change_presence(activity=discord.Game('\\help for commands'))
     print(f'Connected: {datetime.now().strftime("%m/%d/%Y %H:%M:%S")}')
 
