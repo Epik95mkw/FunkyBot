@@ -4,10 +4,12 @@ import random
 from datetime import datetime
 
 import discord
-from discord.ext.commands import Bot, Command
+from discord.ext import commands
 from dotenv import load_dotenv
 
-from api import spreadsheet, gamedata, chadsoft
+from api import gamedata, chadsoft
+from api.spreadsheet import Spreadsheet
+# from core.ctgp_update import UpdateCommands
 from utils import szsreader, kmpreader, gcpfinder
 from core import paths, cpinfo
 from core.tracklist import TrackList, TrackData
@@ -15,27 +17,38 @@ from core.tracklist import TrackList, TrackData
 load_dotenv()
 DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
 SHEET_ID = os.getenv('SHEET_ID')
+GUILD_ID = os.getenv('GUILD_ID')
 
-client = spreadsheet.authorize('./token.json')
+spreadsheet = Spreadsheet(SHEET_ID, './token.json')
 tracklist = TrackList(
-    sheet=spreadsheet.get_all_formatted(client, SHEET_ID),
+    sheet=spreadsheet.get_all_formatted(),
     regs=gamedata.regs
 )
 
-bot = Bot(command_prefix='\\', help_command=None)
+bot = commands.Bot(
+    command_prefix='\\',
+    help_command=None,
+    intents=discord.Intents.all()
+)
 
 
 @bot.event
 async def on_ready():
-    if os.path.isfile('./core/extra.py'):
-        bot.load_extension('core.extra')
+    if GUILD_ID is not None:
+        for cmd in bot.commands:
+            cmd.add_check(lambda ctx: str(ctx.guild.id) == GUILD_ID)
+    if os.path.isdir('./extensions'):
+        for file in os.listdir('./extensions'):
+            if file.endswith('.py'):
+                await bot.load_extension(f'extensions.{file[:-3]}')
+    # await bot.add_cog(UpdateCommands(bot, spreadsheet), guilds=bot.guilds)
     await bot.change_presence(activity=discord.Game('\\help for commands'))
     print(f'Connected: {datetime.now().strftime("%m/%d/%Y %H:%M:%S")}')
 
 
 @bot.event
 async def on_command_error(ctx, error):
-    if not isinstance(error, discord.ext.commands.errors.CommandNotFound):
+    if not isinstance(error, (commands.CommandNotFound, commands.CheckFailure)):
         await ctx.send(error)
         raise error.original if hasattr(error, 'original') else error
 
@@ -45,7 +58,7 @@ async def on_command_error(ctx, error):
 
 @bot.command(name='help')
 async def cmd_help(ctx):
-    cmdlist = '\n'.join(v.help for v in globals().values() if isinstance(v, Command) and v.help)
+    cmdlist = '\n'.join(v.help for v in globals().values() if isinstance(v, commands.Command) and v.help)
     footer = '<track name> accepts any custom track in CTGP. Track names are case insensitive and ' \
              'can be replaced with abbreviations ("dcr", "snes mc2", etc.).'
     embed = discord.Embed(title="Commands:", description=cmdlist[:3000] + '\n\n' + footer, color=0xCA00FF)
@@ -56,7 +69,7 @@ async def cmd_help(ctx):
 async def links(ctx):
     """ \\links - Get important CT resources """
     desc = 'CTGP Ultras Spreadsheet:\n' \
-        f'{spreadsheet.public_url(SHEET_ID)}\n\n' \
+        f'{spreadsheet.public_url}\n\n' \
         'CTGP Tockdom Page:\n' \
         'http://wiki.tockdom.com/wiki/CTGPR\n\n' \
         'CTGP Track Files Dropbox:\n' \
@@ -73,10 +86,10 @@ async def links(ctx):
     await ctx.send(embed=embed)
 
 
-@bot.command(name='spreadsheet')
+@bot.command(name='spreadsheet', aliases=['sheet', 'sheetlink'])
 async def get_sheetlink(ctx):
     """ \\spreadsheet - Get link to CTGP ultras spreadsheet """
-    await ctx.send(spreadsheet.public_url(SHEET_ID))
+    await ctx.send(spreadsheet.public_url)
 
 
 @bot.command(name='info')
@@ -126,7 +139,7 @@ async def get_bkt(ctx, track: TrackData, *args):
     """ \\bkt <track name> [glitch/no-sc] [flap] [200cc] """
     args = [a.lower() for a in args]
     category = 0
-    is_flap = ''
+    is_flap = False
     is_200 = False
 
     # Parse command
@@ -267,6 +280,14 @@ async def random_track(ctx, arg=''):
         await random_track(ctx)
 
 
+@bot.command(name='sync')
+@commands.is_owner()
+async def sync_app_commands(ctx):
+    """ Only bot owner can use. Syncs application commands. """
+    msg = await ctx.send('Syncing...')
+    synced = await bot.tree.sync(guild=ctx.guild)
+    await msg.edit(content=f'Synced {len(synced)} app commands.')
+
+
 if __name__ == '__main__':
-    print(f'Process started: {datetime.now().strftime("%m/%d/%Y %H:%M:%S")}')
     bot.run(DISCORD_TOKEN)
