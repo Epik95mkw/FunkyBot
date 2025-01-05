@@ -14,6 +14,8 @@ from utils import szsreader, kmpreader, gcpfinder
 from core import paths, cpinfo
 from core.tracklist import TrackList, TrackData
 
+EMBED_COLOR = 0xCA00FF
+
 load_dotenv()
 DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
 SHEET_ID = os.getenv('SHEET_ID')
@@ -61,7 +63,7 @@ async def cmd_help(ctx):
     cmdlist = '\n'.join(v.help for v in globals().values() if isinstance(v, commands.Command) and v.help)
     footer = '<track name> accepts any custom track in CTGP. Track names are case insensitive and ' \
              'can be replaced with abbreviations ("dcr", "snes mc2", etc.).'
-    embed = discord.Embed(title="Commands:", description=cmdlist[:3000] + '\n\n' + footer, color=0xCA00FF)
+    embed = discord.Embed(title="Commands:", description=cmdlist[:3000] + '\n\n' + footer, color=EMBED_COLOR)
     await ctx.send(embed=embed)
 
 
@@ -82,7 +84,7 @@ async def links(ctx):
         'https://github.com/soopercool101/BrawlCrate/releases\n\n' \
         'Download CTools:\n' \
         'http://www.chadsoft.co.uk/ctools/setup/ctoolssetup.msi'
-    embed = discord.Embed(title='**Resources:**', description=desc, color=0xCA00FF)
+    embed = discord.Embed(title='**Resources:**', description=desc, color=EMBED_COLOR)
     await ctx.send(embed=embed)
 
 
@@ -116,7 +118,7 @@ async def get_info(ctx, track: TrackData):
            f'\n' \
            f'Wiki Page: <{sdata.wiki_url or "[link not found]"}>\n' \
            f'CT Archive Page: {sdata.archive_url or "N/A"}'
-    await ctx.send(embed=discord.Embed(title=track.name, description=desc, color=0xCA00FF))
+    await ctx.send(embed=discord.Embed(title=track.name, description=desc, color=EMBED_COLOR))
 
 
 @bot.command(name='video')
@@ -228,7 +230,7 @@ async def get_cpinfo(ctx, track: TrackData):
            'Last Key Checkpoint %: ' + '{:.2f}'.format(float(cpdata.last_kcp_p) * 100) + '%\n' \
            'Maximum % for Ultra: ' + '{:.2f}'.format(float(cpdata.max_ultra_p) * 100) + '%\n' \
 
-    embed = discord.Embed(title=track.name, description=desc, color=0xCA00FF)
+    embed = discord.Embed(title=track.name, description=desc, color=EMBED_COLOR)
     await ctx.send(content='', embed=embed)
 
 
