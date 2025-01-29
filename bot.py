@@ -1,5 +1,7 @@
+import asyncio
 import os
 import random
+import shutil
 from datetime import datetime
 from glob import glob
 
@@ -8,6 +10,7 @@ from discord.ext import commands
 from dotenv import load_dotenv
 
 from api import chadsoft
+from api.dropbox_client import Dropbox
 from api.spreadsheet import Spreadsheet
 from utils import szsreader, kmpreader, gcpfinder
 from core import paths, cpinfo, command_utils
@@ -201,7 +204,7 @@ async def cmd_szs(ctx: commands.Context, *args):
 @bot.command(name='kmp')
 @command_utils.help_msg
 async def cmd_kmp(ctx: commands.Context, *args):
-    """ \\kmp <trackname> - Download track\'s kmp and kcl files """
+    """ \\kmp <trackname OR szs file> - Download track\'s kmp and kcl files """
     if ctx.message.attachments:  # File input
         filepath = await command_utils.save_to_temp(ctx.message.attachments[0])
         if not str(filepath).endswith('.szs'):
@@ -247,7 +250,7 @@ async def cmd_img(ctx: commands.Context, *args):
 @bot.command(name='cpinfo')
 @command_utils.help_msg
 async def cmd_cpinfo(ctx: commands.Context, *args):
-    """ \\cpinfo <trackname> - Get stats for track\'s checkpoint map """
+    """ \\cpinfo <trackname OR szs/kmp file> - Get stats for track\'s checkpoint map """
     if ctx.message.attachments:  # File input
         trackname = 'Attached Track'
         filepath = await command_utils.save_to_temp(ctx.message.attachments[0])
@@ -293,7 +296,7 @@ async def cmd_cpinfo(ctx: commands.Context, *args):
 @bot.command(name='gcps')
 @command_utils.help_msg
 async def cmd_gcps(ctx: commands.Context, *args):
-    """ \\gcps [option] <trackname> - Generates Desmos graph of the full track. """
+    """ \\gcps [option] <trackname OR szs/kmp file> - Generates Desmos graph of the full track. """
     args = [a.lower() for a in args]
     track_args = []
     splitpaths = False
@@ -357,13 +360,60 @@ async def random_track(ctx: commands.Context):
     await cmd_info(ctx, trackname)
 
 
+# OWNER COMMANDS #######################################################################################################
+
+
 @bot.command(name='sync')
 @commands.is_owner()
-async def sync_app_commands(ctx):
-    """ Only bot owner can use. Syncs application commands. """
+async def cmd_sync(ctx):
     msg = await ctx.send('Syncing...')
     synced = await bot.tree.sync(guild=ctx.guild)
     await msg.edit(content=f'Synced {len(synced)} app commands.')
+
+
+@bot.command(name='fs-tracks')
+@commands.is_owner()
+async def cmd_fs_tracks(ctx):
+    tracks = fs_tracks.names()
+    await ctx.send(
+        f'Count: {len(tracks)}\n'
+        f'First: {tracks[0]}\n'
+        f'Last:  {tracks[-1]}'
+    )
+
+
+@bot.command(name='sheet-tracks')
+@commands.is_owner()
+async def cmd_sheet_tracks(ctx):
+    tracks = sheet_tracks.names()
+    await ctx.send(
+        f'Count: {len(tracks)}\n'
+        f'First: {tracks[0]}\n'
+        f'Last:  {tracks[-1]}'
+    )
+
+
+@bot.command(name='refresh-spreadsheet')
+@commands.is_owner()
+async def cmd_refresh_spreadsheet(ctx):
+    msg = await ctx.send('Refreshing spreadsheet data...')
+    sheet_tracks.refresh()
+    await msg.edit(content='Successfully refreshed spreadsheet data.')
+
+
+@bot.command(name='refresh-files')
+@commands.is_owner()
+async def cmd_refresh_files(ctx, token: str):
+    target_path = paths.CTGP
+    if str(target_path).startswith('C:'):
+        # Testing locally
+        target_path = target_path / '_TEST_DIR'
+    msg = await ctx.send('Downloading tracks from dropbox (this will take a while)...')
+    dropbox = Dropbox(token)
+    shutil.rmtree(target_path)
+    await asyncio.to_thread(dropbox.download_folder_to, target_path, '/CTGP Custom Tracks')
+    fs_tracks.refresh()
+    await msg.edit(content='Successfully refreshed track files.')
 
 
 if __name__ == '__main__':

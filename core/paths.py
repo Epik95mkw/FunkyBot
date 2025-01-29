@@ -2,15 +2,12 @@ import os
 from dotenv import load_dotenv
 from pathlib import Path
 
-
 load_dotenv()
 MAIN = Path(os.getenv('CT_PATH'))
-DROPBOX_TOKEN = os.getenv('DROPBOX_TOKEN')
 
 CTGP = MAIN / 'CTGP Tracks'
 REGS = MAIN / 'Original Tracks'
 TEMP = MAIN / 'temp'
-
 
 def clear_temp():
     if len(os.listdir(TEMP)) > 0:

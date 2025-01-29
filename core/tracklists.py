@@ -56,6 +56,8 @@ class FilesystemTrackList(TrackList):
     def refresh(self):
         self._d.clear()
         for track in os.listdir(self._root_dir):
+            if track.startswith('_'):
+                continue
             d = self._root_dir / track
             with open(d / 'info.json', 'r') as f:
                 info = json.load(f)
