@@ -111,18 +111,20 @@ async def cmd_info(ctx: commands.Context, *args):
     sheetdata = sheet_tracks.search(fsdata.name)
     if sheetdata is None:
         desc = (
-            '*WARNING: missing spreadsheet data*'
+            '*WARNING: missing spreadsheet data*\n'
             f'Author(s): {fsdata.authors}\n'
-            f'Track Slot: {fsdata.slot}\n'
-            f'Music Slot: {fsdata.music}\n'
+            f'Track Slot: {fsdata.track_slot} ({fsdata.filename})\n'
+            f'Music Slot: {fsdata.music_slot}\n'
+            f'CTGP Slot: {fsdata.ctgp_slot}\n'
             f'[CT Archive Page](https://ct.wiimm.de/i/{fsdata.sha1})'
         )
     else:
         desc = (
             f'Author(s): {fsdata.authors}\n'
             f'CTGP Version: {sheetdata.version}\n'
-            f'Track Slot: {fsdata.slot}\n'
-            f'Music Slot: {fsdata.music}\n'
+            f'Track Slot: {fsdata.track_slot} ({fsdata.filename})\n'
+            f'Music Slot: {fsdata.music_slot}\n'
+            f'CTGP Slot: {fsdata.ctgp_slot}\n'
             '\n'
             'Glitch Status:\n'
             f'> Unbreakable: {sheetdata.unbreakable}\n'
@@ -183,7 +185,7 @@ async def cmd_bkt(ctx: commands.Context, *args):
     if fsdata is None:
         return await ctx.send('Track name not recognized.')
 
-    bkt_url = chadsoft.get_bkt_url(fsdata.slot, fsdata.sha1, category, is_flap, is_200)
+    bkt_url = chadsoft.get_bkt_url(fsdata.track_slot, fsdata.sha1, category, is_flap, is_200)
     await ctx.send(bkt_url)
 
 
@@ -365,7 +367,7 @@ async def random_track(ctx: commands.Context):
 
 @bot.command(name='sync')
 @commands.is_owner()
-async def cmd_sync(ctx):
+async def cmd_sync(ctx: commands.Context):
     msg = await ctx.send('Syncing...')
     synced = await bot.tree.sync(guild=ctx.guild)
     await msg.edit(content=f'Synced {len(synced)} app commands.')
@@ -373,7 +375,7 @@ async def cmd_sync(ctx):
 
 @bot.command(name='fs-tracks')
 @commands.is_owner()
-async def cmd_fs_tracks(ctx):
+async def cmd_fs_tracks(ctx: commands.Context):
     tracks = fs_tracks.names()
     await ctx.send(
         f'Count: {len(tracks)}\n'
@@ -384,7 +386,7 @@ async def cmd_fs_tracks(ctx):
 
 @bot.command(name='sheet-tracks')
 @commands.is_owner()
-async def cmd_sheet_tracks(ctx):
+async def cmd_sheet_tracks(ctx: commands.Context):
     tracks = sheet_tracks.names()
     await ctx.send(
         f'Count: {len(tracks)}\n'
@@ -393,17 +395,18 @@ async def cmd_sheet_tracks(ctx):
     )
 
 
-@bot.command(name='refresh-spreadsheet')
+@bot.command(name='refresh-tracks')
 @commands.is_owner()
-async def cmd_refresh_spreadsheet(ctx):
-    msg = await ctx.send('Refreshing spreadsheet data...')
+async def cmd_refresh_tracks(ctx: commands.Context):
+    msg = await ctx.send('Refreshing track data...')
+    fs_tracks.refresh()
     sheet_tracks.refresh()
-    await msg.edit(content='Successfully refreshed spreadsheet data.')
+    await msg.edit(content='Successfully refreshed track data.')
 
 
-@bot.command(name='refresh-files')
+@bot.command(name='download-dropbox')
 @commands.is_owner()
-async def cmd_refresh_files(ctx, token: str):
+async def cmd_download_dropbox(ctx: commands.Context, token: str):
     target_path = paths.CTGP
     if str(target_path).startswith('C:'):
         # Testing locally
@@ -411,9 +414,12 @@ async def cmd_refresh_files(ctx, token: str):
     msg = await ctx.send('Downloading tracks from dropbox (this will take a while)...')
     dropbox = Dropbox(token)
     shutil.rmtree(target_path)
+
     await asyncio.to_thread(dropbox.download_folder_to, target_path, '/CTGP Custom Tracks')
+
+    await msg.reply('Successfully downloaded track folders from dropbox')
     fs_tracks.refresh()
-    await msg.edit(content='Successfully refreshed track files.')
+    await msg.reply('Successfully refreshed track files.')
 
 
 if __name__ == '__main__':

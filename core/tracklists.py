@@ -34,9 +34,10 @@ class TrackList(ABC):
 class FilesystemTrack:
     name: str
     authors: str
-    slot: str
     filename: str
-    music: str
+    track_slot: str
+    ctgp_slot: str
+    music_slot: str
     sha1: str
     dir: Path
 
